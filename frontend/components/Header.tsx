@@ -4,8 +4,8 @@ import React from "react";
 import { PlaySquare, CalendarClock, Layers, CreditCard, Shield, LayoutDashboard, Settings } from "lucide-react";
 
 interface HeaderProps {
-  activeTab: "workspace" | "scheduler" | "social" | "billing" | "admin";
-  setActiveTab: (tab: "workspace" | "scheduler" | "social" | "billing" | "admin") => void;
+  activeTab: "workspace" | "scheduler" | "social" | "billing" | "admin" | "settings";
+  setActiveTab: (tab: "workspace" | "scheduler" | "social" | "billing" | "admin" | "settings") => void;
   currentUser: any;
   handleLogout: () => void;
   onOpenSettings?: () => void;
@@ -16,6 +16,7 @@ const tabLabels: Record<string, string> = {
   scheduler: "Scheduler Calendar",
   social:    "Social Channels",
   billing:   "Billing & Plans",
+  settings:  "AI & Platform Settings",
   admin:     "Admin Control Suite",
 };
 
@@ -24,6 +25,7 @@ const tabIcons: Record<string, React.FC<{ size?: number; className?: string }>> 
   scheduler: CalendarClock,
   social:    Layers,
   billing:   CreditCard,
+  settings:  Settings,
   admin:     Shield,
 };
 
@@ -46,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, current
       <div className="flex items-center gap-3">
         {/* Mobile navigation buttons */}
         <div className="flex md:hidden gap-1">
-          {(["workspace","scheduler","social","billing"] as const).map(tab => {
+          {(["workspace","scheduler","social","billing","settings"] as const).map(tab => {
             const TabIcon = tabIcons[tab];
             return (
               <button
@@ -61,16 +63,18 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, current
         </div>
 
         {/* Settings button in header */}
-        {onOpenSettings && (
-          <button
-            onClick={onOpenSettings}
-            title="Settings & Configurations"
-            className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold"
-          >
-            <Settings size={15} />
-            <span className="hidden md:inline">Settings</span>
-          </button>
-        )}
+        <button
+          onClick={() => setActiveTab("settings")}
+          title="AI & Platform Settings"
+          className={`p-2 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold ${
+            activeTab === "settings"
+              ? "bg-rose-600 text-white shadow-xs"
+              : "text-slate-600 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-200"
+          }`}
+        >
+          <Settings size={15} />
+          <span className="hidden md:inline">AI & Settings</span>
+        </button>
 
         {/* User profile avatar badge in Header */}
         {currentUser && (

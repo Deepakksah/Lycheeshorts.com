@@ -14,14 +14,17 @@ import { SchedulerTab } from "../components/SchedulerTab";
 import { SocialTab } from "../components/SocialTab";
 import { AdminTab } from "../components/AdminTab";
 import { BillingTab } from "../components/BillingTab";
+import { SettingsTab } from "../components/SettingsTab";
 import { AuthModal } from "../components/AuthModal";
 import { SettingsModal } from "../components/SettingsModal";
-import { FloatingThemeWidget } from "../components/FloatingThemeWidget";
+import { FloatingThemeWidget, DockPosition, ThemeColor } from "../components/FloatingThemeWidget";
 import { Settings } from "lucide-react";
 
 export default function DashboardPage() {
   const [token, setToken] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [dockPosition, setDockPosition] = useState<DockPosition>("right");
+  const [selectedColor, setSelectedColor] = useState<ThemeColor>("rose");
   const [authMode, setAuthMode] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
   const [authEmail, setAuthEmail] = useState("admin@Lychee.com");
   const [authPassword, setAuthPassword] = useState("123456");
@@ -50,7 +53,7 @@ export default function DashboardPage() {
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [rescheduleDateTime, setRescheduleDateTime] = useState("");
 
-  const [activeTab, setActiveTab] = useState<"workspace" | "scheduler" | "billing" | "social" | "admin">("workspace");
+  const [activeTab, setActiveTab] = useState<"workspace" | "scheduler" | "billing" | "social" | "admin" | "settings">("workspace");
   const [socialAccounts, setSocialAccounts] = useState<any[]>([]);
   const [isConnectingPlatform, setIsConnectingPlatform] = useState<number | null>(null);
   const [socialDisplayName, setSocialDisplayName] = useState("");
@@ -92,7 +95,7 @@ export default function DashboardPage() {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       const tabParam = urlParams.get("tab");
-      if (tabParam && ["workspace","scheduler","billing","social","admin"].includes(tabParam)) {
+      if (tabParam && ["workspace","scheduler","billing","social","admin","settings"].includes(tabParam)) {
         setActiveTab(tabParam as any);
       }
     }
@@ -424,37 +427,40 @@ export default function DashboardPage() {
               setAdminAuditSearch={setAdminAuditSearch} adminAnalytics={adminAnalytics}
               loadAdminData={loadAdminData}
             />
-          ) : (
+          ) : activeTab === "billing" ? (
             <BillingTab
               plans={plans} usage={usage} paymentHistory={paymentHistory}
               billingCycle={billingCycle} setBillingCycle={setBillingCycle}
               handleCheckout={handleCheckout} loading={loading}
             />
+          ) : (
+            <SettingsTab
+              currentUser={currentUser}
+              usage={usage}
+              dockPosition={dockPosition}
+              setDockPosition={setDockPosition}
+              selectedColor={selectedColor}
+              setSelectedColor={setSelectedColor}
+            />
           )}
 
-          {/* Floating Settings Button */}
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            title="Platform & AI Settings"
-            className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-zinc-950/90 hover:bg-zinc-900 text-white rounded-2xl border border-rose-500/40 shadow-2xl backdrop-blur-md hover:scale-105 active:scale-95 transition-all group hover:border-rose-500 cursor-pointer"
-          >
-            <div className="h-2 w-2 rounded-full bg-rose-500 animate-ping" />
-            <Settings size={17} className="text-rose-400 group-hover:rotate-45 transition-transform duration-300" />
-            <span className="text-xs font-black tracking-wide hidden sm:inline text-rose-100">AI & Settings</span>
-          </button>
-
-          {/* Floating Theme & Layout Customizer (Left / Right Dockable & Color Palettes) */}
+          {/* Floating Theme & AI Customizer (Left / Right Dockable & Color Palettes) */}
           <FloatingThemeWidget
-            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenSettings={() => setActiveTab("settings")}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
           />
 
-          {/* Settings Modal */}
+          {/* Settings Modal (Can also be triggered via Quick Modal if needed) */}
           <SettingsModal
             isOpen={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
             currentUser={currentUser}
+            dockPosition={dockPosition}
+            setDockPosition={setDockPosition}
+            selectedColor={selectedColor}
+            setSelectedColor={setSelectedColor}
+            usage={usage}
           />
         </section>
       </div>

@@ -4,17 +4,108 @@ import React, { useState, useEffect } from "react";
 import {
   Settings, X, Sparkles, Sliders, Shield, Video, Bell,
   ExternalLink, CheckCircle2, RotateCcw, Volume2, Film,
-  Share2, Key, HelpCircle
+  Share2, Key, HelpCircle, Palette, ArrowLeftRight, Check,
+  Moon, Sun, Laptop, User, CreditCard, Layers, CheckSquare,
+  AlertCircle
 } from "lucide-react";
+
+export type ThemeColor = "rose" | "violet" | "blue" | "emerald" | "amber" | "fuchsia";
+export type DockPosition = "left" | "right";
+
+export const colorThemes: Record<ThemeColor, {
+  name: string;
+  primary: string;
+  gradient: string;
+  ring: string;
+  badge: string;
+  accent: string;
+  bgLight: string;
+  borderLight: string;
+}> = {
+  rose: {
+    name: "Lychee Rose",
+    primary: "#e11d48",
+    gradient: "from-rose-600 to-red-500",
+    ring: "ring-rose-500",
+    badge: "bg-rose-500",
+    accent: "text-rose-500",
+    bgLight: "bg-rose-50",
+    borderLight: "border-rose-200",
+  },
+  violet: {
+    name: "Cyber Violet",
+    primary: "#7c3aed",
+    gradient: "from-violet-600 to-purple-600",
+    ring: "ring-violet-500",
+    badge: "bg-violet-500",
+    accent: "text-violet-500",
+    bgLight: "bg-violet-50",
+    borderLight: "border-violet-200",
+  },
+  blue: {
+    name: "Ocean Blue",
+    primary: "#0284c7",
+    gradient: "from-sky-500 to-blue-600",
+    ring: "ring-blue-500",
+    badge: "bg-blue-500",
+    accent: "text-blue-500",
+    bgLight: "bg-sky-50",
+    borderLight: "border-sky-200",
+  },
+  emerald: {
+    name: "Emerald Mint",
+    primary: "#059669",
+    gradient: "from-emerald-500 to-teal-600",
+    ring: "ring-emerald-500",
+    badge: "bg-emerald-500",
+    accent: "text-emerald-500",
+    bgLight: "bg-emerald-50",
+    borderLight: "border-emerald-200",
+  },
+  amber: {
+    name: "Sunset Orange",
+    primary: "#ea580c",
+    gradient: "from-amber-500 to-orange-600",
+    ring: "ring-orange-500",
+    badge: "bg-orange-500",
+    accent: "text-orange-500",
+    bgLight: "bg-amber-50",
+    borderLight: "border-amber-200",
+  },
+  fuchsia: {
+    name: "Neon Fuchsia",
+    primary: "#c026d3",
+    gradient: "from-fuchsia-500 to-pink-600",
+    ring: "ring-fuchsia-500",
+    badge: "bg-fuchsia-500",
+    accent: "text-fuchsia-500",
+    bgLight: "bg-fuchsia-50",
+    borderLight: "border-fuchsia-200",
+  },
+};
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser?: any;
+  dockPosition?: DockPosition;
+  setDockPosition?: (pos: DockPosition) => void;
+  selectedColor?: ThemeColor;
+  setSelectedColor?: (color: ThemeColor) => void;
+  usage?: any;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, currentUser }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"ai" | "publishing" | "system" | "shortcuts">("ai");
+export const SettingsModal: React.FC<SettingsModalProps> = ({
+  isOpen,
+  onClose,
+  currentUser,
+  dockPosition = "right",
+  setDockPosition,
+  selectedColor = "rose",
+  setSelectedColor,
+  usage,
+}) => {
+  const [activeSubTab, setActiveSubTab] = useState<"appearance" | "ai" | "publishing" | "system" | "account">("appearance");
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   // Settings states with localStorage persistence
@@ -78,23 +169,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
     setDefaultVisibility("public");
     setAutoPinnedComment("🔥 Created with Lychee Shorts AI — subscribe for more daily clips!");
     setApiUrl("http://localhost:5000");
+    if (setSelectedColor) setSelectedColor("rose");
+    if (setDockPosition) setDockPosition("right");
     localStorage.removeItem("lychee_settings");
+    localStorage.removeItem("lychee_theme_color");
+    localStorage.removeItem("lychee_dock_pos");
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-rose-600 to-red-500 flex items-center justify-center shadow-md shadow-rose-500/20 text-white">
               <Settings size={20} />
             </div>
             <div>
-              <h2 className="text-base font-black text-slate-900">Platform & AI Settings</h2>
-              <p className="text-xs text-slate-400">Configure AI generation, video rules & platform parameters</p>
+              <h2 className="text-base font-black text-slate-900">Lychee Unified Control & Settings</h2>
+              <p className="text-xs text-slate-400">Manage appearance, AI generation, social defaults, and API settings</p>
             </div>
           </div>
           <button
@@ -106,41 +201,115 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-100 px-6 bg-white gap-2">
-          <button
-            onClick={() => setActiveSubTab("ai")}
-            className={`flex items-center gap-2 py-3 px-3 text-xs font-bold border-b-2 transition-all ${
-              activeSubTab === "ai"
-                ? "border-rose-600 text-rose-600"
-                : "border-transparent text-slate-400 hover:text-slate-700"
-            }`}
-          >
-            <Sparkles size={14} /> AI Processing & Framing
-          </button>
-          <button
-            onClick={() => setActiveSubTab("publishing")}
-            className={`flex items-center gap-2 py-3 px-3 text-xs font-bold border-b-2 transition-all ${
-              activeSubTab === "publishing"
-                ? "border-rose-600 text-rose-600"
-                : "border-transparent text-slate-400 hover:text-slate-700"
-            }`}
-          >
-            <Share2 size={14} /> Social Defaults
-          </button>
-          <button
-            onClick={() => setActiveSubTab("system")}
-            className={`flex items-center gap-2 py-3 px-3 text-xs font-bold border-b-2 transition-all ${
-              activeSubTab === "system"
-                ? "border-rose-600 text-rose-600"
-                : "border-transparent text-slate-400 hover:text-slate-700"
-            }`}
-          >
-            <Sliders size={14} /> System & API
-          </button>
+        <div className="flex border-b border-slate-100 px-6 bg-white gap-1 overflow-x-auto">
+          {[
+            { id: "appearance", label: "Appearance & Theme", icon: Palette },
+            { id: "ai",         label: "AI Video Engine",     icon: Sparkles },
+            { id: "publishing", label: "Social Defaults",     icon: Share2 },
+            { id: "system",     label: "System & API",        icon: Sliders },
+            { id: "account",    label: "Account & Plan",      icon: User },
+          ].map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveSubTab(id as any)}
+              className={`flex items-center gap-2 py-3 px-3 text-xs font-bold border-b-2 transition-all shrink-0 ${
+                activeSubTab === id
+                  ? "border-rose-600 text-rose-600"
+                  : "border-transparent text-slate-400 hover:text-slate-700"
+              }`}
+            >
+              <Icon size={14} /> {label}
+            </button>
+          ))}
         </div>
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-700">
+          {/* TAB 1: APPEARANCE & THEME */}
+          {activeSubTab === "appearance" && (
+            <div className="space-y-5">
+              {/* Floating Dock Position */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                      <ArrowLeftRight size={14} className="text-rose-500" /> Floating Quick Widget Position
+                    </h4>
+                    <p className="text-[11px] text-slate-400">Choose which side of your screen the floating settings widget docks to</p>
+                  </div>
+                  <span className="text-xs font-bold text-slate-500 capitalize bg-slate-100 px-2.5 py-1 rounded-full">
+                    Docked: {dockPosition}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200/80">
+                  <button
+                    type="button"
+                    onClick={() => setDockPosition && setDockPosition("left")}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all ${
+                      dockPosition === "left"
+                        ? "bg-white text-rose-600 shadow-md ring-2 ring-rose-500/20 border border-rose-200"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span className="text-sm">⬅️</span> Float on Left Side
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDockPosition && setDockPosition("right")}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all ${
+                      dockPosition === "right"
+                        ? "bg-white text-rose-600 shadow-md ring-2 ring-rose-500/20 border border-rose-200"
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                    }`}
+                  >
+                    Float on Right Side <span className="text-sm">➡️</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Accent Color Themes */}
+              <div>
+                <h4 className="text-xs font-black text-slate-900 mb-1 flex items-center gap-1.5">
+                  <Palette size={14} className="text-rose-500" /> Live Accent Color Themes
+                </h4>
+                <p className="text-[11px] text-slate-400 mb-3">Select your favorite primary color palette for highlights, buttons, and accents</p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {(Object.keys(colorThemes) as ThemeColor[]).map((key) => {
+                    const item = colorThemes[key];
+                    const isSelected = selectedColor === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSelectedColor && setSelectedColor(key)}
+                        className={`flex items-center gap-3 p-3 rounded-2xl border transition-all text-left group ${
+                          isSelected
+                            ? "border-slate-900 bg-slate-900 text-white shadow-md ring-2 ring-slate-900/20"
+                            : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div
+                          className={`h-7 w-7 rounded-full bg-gradient-to-tr ${item.gradient} shadow-sm shrink-0 flex items-center justify-center`}
+                        >
+                          {isSelected && <Check size={14} className="text-white stroke-[3]" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-black truncate">{item.name}</p>
+                          <p className={`text-[10px] truncate ${isSelected ? "text-slate-300" : "text-slate-400"}`}>
+                            {item.primary}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: AI VIDEO ENGINE */}
           {activeSubTab === "ai" && (
             <div className="space-y-5">
               {/* Aspect Ratio */}
@@ -151,8 +320,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
                 <div className="grid grid-cols-3 gap-3">
                   {[
                     { id: "9:16", label: "9:16 Portrait", sub: "YouTube Shorts / Reels / TikTok" },
-                    { id: "1:1", label: "1:1 Square", sub: "Instagram Feed / FB Posts" },
-                    { id: "16:9", label: "16:9 Landscape", sub: "Standard YouTube & Web" },
+                    { id: "1:1",  label: "1:1 Square",    sub: "Instagram Feed / FB Posts" },
+                    { id: "16:9", label: "16:9 Landscape",sub: "Standard YouTube & Web" },
                   ].map(opt => (
                     <button
                       key={opt.id}
@@ -205,7 +374,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
                   <label className="text-xs font-black text-slate-900">
                     Minimum Virality Score Cutoff
                   </label>
-                  <span className="text-xs font-black px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">
                     🔥 {viralityThreshold}%
                   </span>
                 </div>
@@ -246,6 +415,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
             </div>
           )}
 
+          {/* TAB 3: PUBLISHING DEFAULTS */}
           {activeSubTab === "publishing" && (
             <div className="space-y-4">
               <div>
@@ -292,6 +462,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
             </div>
           )}
 
+          {/* TAB 4: SYSTEM & API */}
           {activeSubTab === "system" && (
             <div className="space-y-4">
               <div>
@@ -328,11 +499,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
                   Status: 200 OK
                 </span>
               </div>
+            </div>
+          )}
 
-              {currentUser && (
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1">
-                  <p className="font-bold text-slate-800">Logged in as: <span className="text-rose-600">{currentUser.displayName || currentUser.email}</span></p>
-                  <p className="text-slate-500">Role: <span className="font-bold uppercase text-slate-700">{currentUser.role}</span> | Tier: <span className="font-bold text-emerald-600">{currentUser.tier || "Enterprise"}</span></p>
+          {/* TAB 5: ACCOUNT & PLAN */}
+          {activeSubTab === "account" && (
+            <div className="space-y-4">
+              {currentUser ? (
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-2xl bg-rose-950 border border-rose-800/60 flex items-center justify-center text-sm font-black text-rose-300">
+                      {currentUser.displayName ? currentUser.displayName.slice(0, 2).toUpperCase() : "US"}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900">{currentUser.displayName || "User"}</h4>
+                      <p className="text-xs text-slate-500">{currentUser.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-200 text-xs">
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">Role</span>
+                      <p className="font-bold text-slate-800 uppercase">{currentUser.role || "User"}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase">Tier</span>
+                      <p className="font-bold text-emerald-600">{currentUser.tier || "Enterprise"}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400">Not authenticated</p>
+              )}
+
+              {usage && (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-bold text-slate-700">Monthly Videos Generated</span>
+                    <span className="font-bold text-rose-600">{usage.videosGeneratedThisMonth} / {usage.monthlyVideoLimit || "Unlimited"}</span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-rose-600 rounded-full transition-all"
+                      style={{ width: `${Math.min(100, (usage.videosGeneratedThisMonth / (usage.monthlyVideoLimit || 100)) * 100)}%` }}
+                    />
+                  </div>
                 </div>
               )}
             </div>

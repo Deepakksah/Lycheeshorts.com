@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { PlaySquare, CalendarClock, Layers, CreditCard, Shield, LogOut, Menu } from "lucide-react";
+import { PlaySquare, CalendarClock, Layers, CreditCard, Shield, LogOut, Menu, Settings } from "lucide-react";
 
 interface SidebarProps {
-  activeTab: "workspace" | "scheduler" | "social" | "billing" | "admin";
-  setActiveTab: (tab: "workspace" | "scheduler" | "social" | "billing" | "admin") => void;
+  activeTab: "workspace" | "scheduler" | "social" | "billing" | "admin" | "settings";
+  setActiveTab: (tab: "workspace" | "scheduler" | "social" | "billing" | "admin" | "settings") => void;
   currentUser: any;
   handleLogout: () => void;
 }
@@ -18,6 +18,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, curre
     { id: "scheduler", label: "Scheduler Calendar", icon: CalendarClock },
     { id: "social",    label: "Social Channels",    icon: Layers },
     { id: "billing",   label: "Billing & Plans",    icon: CreditCard },
+    { id: "settings",  label: "AI & Platform Settings", icon: Settings },
     ...(currentUser?.role === "Admin" ? [{ id: "admin", label: "Admin Control Suite", icon: Shield }] : []),
   ] as const;
 
