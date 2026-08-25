@@ -197,15 +197,6 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
     { id: "listicle", name: "3-Step Secret Action List", icon: "🔢", hookFormula: "3 rules to master this immediately..." },
   ];
 
-  const nichePresets = [
-    { name: "Tech & AI Breakthroughs", icon: "🤖", prompt: "Shocking AI tools that feel illegal to know in 2026" },
-    { name: "Facts & Unexplained Mysteries", icon: "🌌", prompt: "3 scientific paradoxes about the deep ocean that terrify researchers" },
-    { name: "Motivation & Discipline", icon: "⚡", prompt: "The brutal truth about discipline that 99% of people realize too late" },
-    { name: "Money & Wealth Psychology", icon: "💰", prompt: "How the ultra-wealthy use psychological asymmetry to never lose money" },
-    { name: "Dark Psychology & Human Behavior", icon: "👁️", prompt: "3 subtle body language tricks to instantly know if someone is lying" },
-    { name: "Biohacking & Energy", icon: "🧬", prompt: "The 5-minute morning routine that permanently eliminated my brain fog" },
-  ];
-
   // Load saved keys from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -440,7 +431,7 @@ Return ONLY valid pure JSON matching this exact schema without markdown code fen
 
   // Dynamic Prompt-Tailored Generation
   const handleGenerateVideo = async () => {
-    const promptToUse = topicPrompt.trim() || nichePresets.find(n => n.name === selectedNiche)?.prompt || "Shocking AI tools that feel illegal to know in 2026";
+    const promptToUse = topicPrompt.trim() || "Secrets of the Universe and Deep Space";
     setIsGenerating(true);
     setProject(null);
     setUploadSuccessMessage(null);
@@ -853,40 +844,6 @@ Image Generation Prompt: ${s.imagePrompt}
             </div>
           </div>
 
-          {/* Quick Viral Starters */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <Flame size={14} className="text-rose-500" /> 1-Click Prompt Ideas
-              </h3>
-              <span className="text-[10px] text-slate-400 font-bold">Quick Ingest</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              {nichePresets.map(preset => (
-                <button
-                  key={preset.name}
-                  type="button"
-                  onClick={() => {
-                    setSelectedNiche(preset.name);
-                    setTopicPrompt(preset.prompt);
-                  }}
-                  className={`p-3 rounded-2xl border text-left transition-all flex items-start gap-2.5 ${
-                    selectedNiche === preset.name
-                      ? "border-rose-500 bg-rose-50/70 ring-2 ring-rose-500/20 text-rose-950 font-bold"
-                      : "border-slate-200 hover:border-slate-300 bg-white text-slate-700"
-                  }`}
-                >
-                  <span className="text-lg">{preset.icon}</span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-black truncate">{preset.name}</p>
-                    <p className="text-[10px] text-slate-400 truncate mt-0.5">{preset.prompt}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Form Controls */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-5">
             <div>
@@ -1233,15 +1190,11 @@ Image Generation Prompt: ${s.imagePrompt}
               <div className="flex items-center gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedNiche("Tech & AI Breakthroughs");
-                    setTopicPrompt("Shocking AI tools that feel illegal to know in 2026");
-                    handleGenerateVideo();
-                  }}
+                  onClick={handleGenerateVideo}
                   className="px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black transition-all flex items-center gap-2 shadow-xs cursor-pointer"
                 >
                   <Sparkles size={14} className="text-rose-400" />
-                  <span>Generate AI Video Demo</span>
+                  <span>Generate Video From Prompt</span>
                 </button>
               </div>
             </div>
