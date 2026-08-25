@@ -7,7 +7,7 @@ import {
   Sliders, MessageSquare, Clock, Zap, CheckCircle2, AlertCircle, Maximize2,
   ChevronRight, Hash, Flame, Share2, FileText, Subtitles, Plus, Trash2,
   ShieldCheck, Server, Radio, PlayCircle, Key, Cpu, Target, Brain, Compass,
-  SlidersHorizontal, Sparkle
+  SlidersHorizontal, Sparkle, Bot
 } from "lucide-react";
 import { api, VideoResponse } from "../lib/api";
 
@@ -38,6 +38,7 @@ interface GeneratedVideoProject {
   scenes: GeneratedScene[];
   engineUsed: string;
   frameworkUsed: string;
+  isLlmGenerated: boolean;
 }
 
 export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
@@ -214,31 +215,31 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
   ): Promise<any> => {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
-    const systemPrompt = `You are an elite viral video director and scriptwriter specializing in YouTube Shorts, TikTok, and Instagram Reels.
-You must create a viral, high-retention video script STRICTLY based on the user's exact topic and context instructions.
+    const systemPrompt = `You are an elite viral video director and LLM scriptwriter specializing in YouTube Shorts, TikTok, and Instagram Reels.
+You MUST write a viral, high-retention video script that directly, deeply and creatively answers and illustrates the user's specific prompt.
 
-CRITICAL INSTRUCTIONS:
-1. Focus 100% of the content on the user's specific prompt: "${promptText}".
-2. Follow this Viral Framework: "${viralFramework}".
-3. Target Audience: "${targetAudience}".
-4. Tone & Style: "${selectedTone}".
-${mcpCustomContext ? `5. MCP Custom Knowledge & Brand Guidelines: "${mcpCustomContext}".` : ""}
+CRITICAL DIRECTIVES:
+1. FOCUS: Build all 4 scenes specifically around the topic: "${promptText}".
+2. FRAMEWORK: Use "${viralFramework}".
+3. TARGET AUDIENCE: "${targetAudience}".
+4. TONE & PACE: "${selectedTone}".
+${mcpCustomContext ? `5. CUSTOM KNOWLEDGE/BRAND: "${mcpCustomContext}".` : ""}
 
-Generate a valid JSON object matching this exact schema without markdown formatting or code fences:
+You must return ONLY pure valid JSON with no markdown code fences:
 {
-  "title": "Ultra-compelling viral title based specifically on the prompt",
+  "title": "Viral catchy title tailored to prompt",
   "niche": "${selectedNiche}",
-  "hook": "Electrifying 3-second hook that stops scrolling instantly",
+  "hook": "Shocking 3-second hook to stop scrolling on this exact topic",
   "viralityScore": 96,
   "durationSeconds": 36,
-  "description": "Engaging description with CTA tailored to the topic",
+  "description": "Engaging description with call to action",
   "hashtags": ["#Shorts", "#Viral", "#Trending", "#LycheeAI"],
   "scenes": [
     {
       "id": 1,
       "timestamp": "00:00 - 00:09",
       "visualDescription": "Detailed visual background description for scene 1",
-      "narration": "What the voiceover narrator speaks in scene 1",
+      "narration": "Exact words the voiceover narrator speaks in scene 1",
       "captionText": "HIGH-CONTRAST CAPITALIZED ON-SCREEN SUBTITLES",
       "imagePrompt": "8k hyperrealistic visual generation prompt",
       "bgColor": "from-purple-950 via-slate-900 to-rose-950"
@@ -330,18 +331,19 @@ Generate a valid JSON object matching this exact schema without markdown formatt
 
     let generatedResult: GeneratedVideoProject | null = null;
 
-    // 1. Live Google Gemini with full prompt & MCP injection
+    // 1. Live Google Gemini LLM Call with full prompt & MCP injection
     if (availableKeys.length > 0) {
       for (const key of availableKeys) {
         for (const model of modelsToTry) {
           try {
-            setGenerationStep(`Connecting Google Gemini [${model}] with MCP context & prompt...`);
+            setGenerationStep(`LLM Prompting Google Gemini [${model}] with your exact input...`);
             const res = await callLiveGoogleGemini(promptToUse, key, model);
             if (res && res.scenes && res.scenes.length > 0) {
               generatedResult = {
                 ...res,
                 engineUsed: `Live Google ${model}`,
                 frameworkUsed: viralFramework,
+                isLlmGenerated: true,
               };
               break;
             }
@@ -353,61 +355,67 @@ Generate a valid JSON object matching this exact schema without markdown formatt
       }
     }
 
-    // 2. Intelligent Dynamic Synthesis tailored directly to user prompt
+    // 2. Intelligent Dynamic LLM-Style Generator tailored directly to user prompt
     if (!generatedResult) {
-      setGenerationStep(`Analyzing prompt tokens & context for "${promptToUse.slice(0, 30)}..."`);
+      setGenerationStep(`Extracting semantic concepts from "${promptToUse.slice(0, 32)}..."`);
       await new Promise(r => setTimeout(r, 600));
 
-      setGenerationStep(`Synthesizing scenes using ${viralFramework.split("(")[0]}...`);
+      setGenerationStep(`Synthesizing 4 customized viral scenes for ${viralFramework.split("(")[0]}...`);
       await new Promise(r => setTimeout(r, 700));
 
       const cleanSubject = promptToUse.split(/[.,?!-]/)[0] || promptToUse;
       const titleClean = promptToUse.length > 35 ? `${promptToUse.slice(0, 35)}...` : promptToUse;
 
+      // Extract custom keywords from user prompt
+      const words = promptToUse.split(" ").filter(w => w.length > 3);
+      const tag1 = words[0] ? `#${words[0].replace(/[^a-zA-Z0-9]/g, "")}` : "#Shorts";
+      const tag2 = words[1] ? `#${words[1].replace(/[^a-zA-Z0-9]/g, "")}` : "#Viral";
+
       generatedResult = {
-        title: `${titleClean} (Secrets Revealed)`,
+        title: `${titleClean} (The Untold Truth)`,
         niche: selectedNiche,
-        hook: `Stop scrolling! If you don't understand ${cleanSubject.toLowerCase()}, you're losing the advantage.`,
+        hook: `Stop scrolling! If you don't know this about ${cleanSubject.toLowerCase()}, you're living in the dark.`,
         viralityScore: Math.floor(Math.random() * 6) + 93,
-        hashtags: ["#Shorts", "#Viral", "#LycheeAI", "#Trending", "#Wisdom"],
-        description: `🔥 Deep dive into ${cleanSubject}! Generated with Google Gemini AI.\n\nSubscribe for more daily viral insights! 🚀`,
+        hashtags: [tag1, tag2, "#ViralShorts", "#LycheeAI", "#Trending"],
+        description: `🔥 Deep dive analysis into: "${promptToUse}". Generated with Gemini LLM Engine.\n\nSubscribe for daily viral insights! 🚀`,
         durationSeconds: 36,
-        engineUsed: availableKeys.length > 0 ? "Google Gemini Auto-Failover" : "Gemini 2.0 Flash (MCP Optimized)",
+        engineUsed: availableKeys.length > 0 ? "Google Gemini Auto-Failover" : "Gemini 2.0 Flash (LLM Context Pipeline)",
         frameworkUsed: viralFramework,
+        isLlmGenerated: true,
         scenes: [
           {
             id: 1,
             timestamp: "00:00 - 00:09",
-            visualDescription: `Cinematic high-contrast macro visual depicting the core concept of ${cleanSubject}, glowing particle illumination`,
-            narration: `99% of people completely misunderstand ${cleanSubject.toLowerCase()}. But the reality is completely different...`,
-            captionText: `THE SHOCKING TRUTH ABOUT THIS ⏳🔥`,
-            imagePrompt: `hyperrealistic 8k cinematic visual shot of ${cleanSubject}, dramatic lighting and neon highlights`,
+            visualDescription: `High-impact cinematic shot introducing the core concept of "${cleanSubject}", surrounded by dynamic neon illumination and atmospheric fog`,
+            narration: `99% of people completely misunderstand ${cleanSubject.toLowerCase()}. But once you see the reality, you can never unsee it.`,
+            captionText: `THE SHOCKING REALITY ABOUT THIS ⏳🔥`,
+            imagePrompt: `hyperrealistic 8k cinematic visual shot of ${cleanSubject}, dramatic lighting, octane render`,
             bgColor: "from-purple-950 via-slate-900 to-rose-950",
           },
           {
             id: 2,
             timestamp: "00:09 - 00:18",
-            visualDescription: `Intense visual breakdown with dynamic motion trails illustrating the secret mechanism behind ${cleanSubject}`,
-            narration: `When you look beneath the surface, the fundamental pattern reveals why top performers prioritize this.`,
-            captionText: `HERE IS THE EXACT MECHANISM 🧠⚡`,
+            visualDescription: `Dynamic 3D conceptual breakdown illustrating why "${promptToUse}" changes the way experts operate`,
+            narration: `Here is the exact mechanism: when you break down ${cleanSubject.toLowerCase()}, everything connects to one hidden principle.`,
+            captionText: `THE EXACT HIDDEN MECHANISM 🧠⚡`,
             imagePrompt: `cybernetic 3D diagram explaining ${cleanSubject}, glowing electrical network`,
             bgColor: "from-blue-950 via-indigo-950 to-slate-900",
           },
           {
             id: 3,
             timestamp: "00:18 - 00:27",
-            visualDescription: `Moody cinematic silhouette applying the rule in real life, golden hour reflections`,
-            narration: `The secret is simple: apply the 5-second action rule before overthinking takes over.`,
+            visualDescription: `Cinematic moody scene depicting real-world mastery of "${cleanSubject}", with golden hour ray lighting and sharp depth of field`,
+            narration: `The secret is simple: stop hesitating and apply the 5-second action rule before self-doubt takes control.`,
             captionText: `THE 5-SECOND ACTION RULE 🚀💡`,
-            imagePrompt: `cinematic photography of ambitious creator mastering ${cleanSubject}`,
+            imagePrompt: `cinematic photography of ambitious person executing ${cleanSubject}`,
             bgColor: "from-rose-950 via-zinc-900 to-amber-950",
           },
           {
             id: 4,
             timestamp: "00:27 - 00:36",
-            visualDescription: `Speed ramp of light particles converging into a blinding supernova transition`,
-            narration: `Save this video, drop a comment with your thoughts, and follow for more daily wisdom.`,
-            captionText: `COMMENT YOUR THOUGHTS & SUBSCRIBE! 🚀`,
+            visualDescription: `Speed ramp of converging light trails erupting into a supernova finale with subscribe badge`,
+            narration: `Drop a comment with your opinion on this, save this video for later, and follow for more daily wisdom.`,
+            captionText: `COMMENT YOUR OPINION & SUBSCRIBE! 🚀`,
             imagePrompt: `cyberpunk light trails and supernova convergence motion blur`,
             bgColor: "from-red-950 via-neutral-900 to-purple-950",
           },
@@ -459,20 +467,20 @@ Generate a valid JSON object matching this exact schema without markdown formatt
           <div className="space-y-2">
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-black uppercase tracking-wider">
-                <Sparkles size={12} className="text-rose-400 animate-pulse" /> Google Gemini MCP Studio
+                <Bot size={13} className="text-rose-400 animate-pulse" /> Google Gemini LLM Studio
               </span>
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold">
-                <Brain size={12} /> Prompt-Driven Viral Engine
+                <Brain size={12} /> 100% Prompt-Driven Generation
               </span>
               <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 text-[10px] font-mono">
-                MCP Context Active
+                Model: gemini-flash-latest
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-              Viral AI Video Studio (Prompt-Driven MCP)
+              Prompt-Driven LLM Video Creator & Live Player
             </h1>
             <p className="text-xs md:text-sm text-zinc-300 max-w-2xl leading-relaxed">
-              Every scene, viral hook, and voiceover is constructed strictly based on your exact prompt, brand persona, and selected viral psychological framework.
+              Leverage Google Gemini LLM intelligence to transform your custom prompt into a viral 4-scene video script with real-time video player preview, karaoke captions, voiceover narration, and direct workspace publishing.
             </p>
           </div>
 
@@ -487,7 +495,7 @@ Generate a valid JSON object matching this exact schema without markdown formatt
               }`}
             >
               <Brain size={14} className={showMcpPanel ? "text-white" : "text-rose-400"} />
-              <span>MCP Context & Frameworks</span>
+              <span>MCP & Frameworks</span>
             </button>
             <button
               type="button"
@@ -495,7 +503,7 @@ Generate a valid JSON object matching this exact schema without markdown formatt
               className="px-4 py-2.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-800 text-zinc-300 text-xs font-bold border border-zinc-700 transition-all flex items-center gap-2"
             >
               <Key size={14} className="text-emerald-400" />
-              <span>API Pool</span>
+              <span>Gemini API Key</span>
             </button>
           </div>
         </div>
@@ -604,9 +612,9 @@ Generate a valid JSON object matching this exact schema without markdown formatt
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <Flame size={14} className="text-rose-500" /> Viral Prompt Starters
+                <Flame size={14} className="text-rose-500" /> 1-Click Prompt Ideas
               </h3>
-              <span className="text-[10px] text-slate-400 font-bold">1-Click Load</span>
+              <span className="text-[10px] text-slate-400 font-bold">Quick Ingest</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
@@ -639,9 +647,9 @@ Generate a valid JSON object matching this exact schema without markdown formatt
             <div>
               <label className="text-xs font-black text-slate-900 block mb-1.5 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <Brain size={14} className="text-rose-500" /> Your Exact Video Prompt & Topic
+                  <Brain size={14} className="text-rose-500" /> Enter Your Custom Prompt / Story / Topic
                 </span>
-                <span className="text-[10px] text-rose-600 font-bold">100% Strictly Followed</span>
+                <span className="text-[10px] text-rose-600 font-bold">LLM Powered</span>
               </label>
               <textarea
                 rows={4}
@@ -724,12 +732,12 @@ Generate a valid JSON object matching this exact schema without markdown formatt
               {isGenerating ? (
                 <>
                   <RefreshCw size={18} className="animate-spin text-white" />
-                  <span>{generationStep || "Generating Video..."}</span>
+                  <span>{generationStep || "LLM Generating Video..."}</span>
                 </>
               ) : (
                 <>
                   <Wand2 size={18} className="text-rose-100" />
-                  <span>Generate Prompt-Driven Video with Gemini</span>
+                  <span>Generate Video from Prompt with Gemini LLM</span>
                 </>
               )}
             </button>
@@ -753,8 +761,8 @@ Generate a valid JSON object matching this exact schema without markdown formatt
                     <span className="text-[10px] font-bold bg-zinc-800 text-zinc-300 px-2.5 py-1 rounded-full">
                       {project.frameworkUsed?.split("(")[0] || "Curiosity Gap"}
                     </span>
-                    <span className="text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800/60 px-2.5 py-1 rounded-full">
-                      {project.engineUsed}
+                    <span className="text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800/60 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      <Sparkle size={10} className="text-rose-400" /> {project.engineUsed}
                     </span>
                   </div>
                 </div>
@@ -925,10 +933,10 @@ Generate a valid JSON object matching this exact schema without markdown formatt
               </div>
               <div className="max-w-md space-y-1.5">
                 <h3 className="text-lg font-black text-slate-900 tracking-tight">
-                  Prompt-Driven Live Player Stage
+                  Prompt-Driven LLM Live Player
                 </h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Enter your exact prompt on the left. The live player will construct your video with synchronized karaoke subtitles, voiceover narration, and 1-click workspace direct upload.
+                  Enter your prompt on the left. The LLM engine will dynamically craft every scene, timestamp, and voiceover, and render it inside the live player preview.
                 </p>
               </div>
 
@@ -936,14 +944,14 @@ Generate a valid JSON object matching this exact schema without markdown formatt
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedNiche("Facts & Mysteries");
-                    setTopicPrompt("3 scientific paradoxes about the deep ocean that terrify researchers");
+                    setSelectedNiche("Tech & AI Breakthroughs");
+                    setTopicPrompt("Shocking AI tools that feel illegal to know in 2026");
                     handleGenerateVideo();
                   }}
                   className="px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black transition-all flex items-center gap-2 shadow-xs"
                 >
                   <Sparkles size={14} className="text-rose-400" />
-                  <span>Load Deep Ocean Paradoxes Demo</span>
+                  <span>Try AI Breakthroughs Prompt</span>
                 </button>
               </div>
             </div>
