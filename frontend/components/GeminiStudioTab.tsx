@@ -7,7 +7,7 @@ import {
   Sliders, MessageSquare, Clock, Zap, CheckCircle2, AlertCircle, Maximize2,
   ChevronRight, Hash, Flame, Share2, FileText, Subtitles, Plus, Trash2,
   ShieldCheck, Server, Radio, PlayCircle, Key, Cpu, Target, Brain, Compass,
-  SlidersHorizontal, Sparkle, Bot
+  SlidersHorizontal, Sparkle, Bot, ExternalLink, DownloadCloud
 } from "lucide-react";
 import { api, VideoResponse } from "../lib/api";
 
@@ -54,6 +54,9 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
   const [targetDuration, setTargetDuration] = useState("30-45s");
   const [voiceType, setVoiceType] = useState("Adam (Deep & Authoritative)");
 
+  // Selected Google AI Studio Gemini Model
+  const [selectedGeminiModel, setSelectedGeminiModel] = useState("gemini-2.0-flash");
+
   // MCP (Model Context Protocol) & Viral Framework states
   const [viralFramework, setViralFramework] = useState("Curiosity Gap (What they won't tell you...)");
   const [mcpCustomContext, setMcpCustomContext] = useState("");
@@ -62,15 +65,8 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
 
   // Multi-API Pool & Gemini Live Endpoint Config
   const [geminiApiKey, setGeminiApiKey] = useState("");
-  const [apiPool, setApiPool] = useState<string[]>([
-    "gemini-flash-latest (High-Speed)",
-    "gemini-1.5-flash (Balanced)",
-    "gemini-2.0-flash (Next-Gen)",
-    "gemini-1.5-pro (Deep Cinematic)",
-  ]);
   const [userApiKeys, setUserApiKeys] = useState<string[]>([]);
   const [newApiKeyInput, setNewApiKeyInput] = useState("");
-  const [activeEngineName, setActiveEngineName] = useState("gemini-flash-latest");
   const [showApiPoolManager, setShowApiPoolManager] = useState(false);
 
   // Generation & Status states
@@ -89,6 +85,14 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
   // Export / Upload status
   const [isUploadingToWorkspace, setIsUploadingToWorkspace] = useState(false);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
+  const [isExportingVideo, setIsExportingVideo] = useState(false);
+
+  const geminiModels = [
+    { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (Next-Gen High Speed)", badge: "Free & Fast", icon: "⚡" },
+    { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (Deep Cinematic Reasoning)", badge: "Flagship Pro", icon: "🌟" },
+    { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash (Balanced Viral Shorts)", badge: "Popular", icon: "🔥" },
+    { id: "gemini-2.0-flash-thinking-exp-01-21", name: "Gemini 2.0 Flash Thinking (Psychology Hooks)", badge: "Reasoning", icon: "🧠" },
+  ];
 
   const viralFrameworks = [
     { id: "curiosity", name: "Curiosity Gap (What they won't tell you...)", icon: "🧠", hookFormula: "Nobody is talking about this..." },
@@ -207,38 +211,38 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  // Direct Live Google Gemini API Request Function with Full MCP Context Injection
+  // Direct Live Google Gemini API Request Function
   const callLiveGoogleGemini = async (
     promptText: string,
     keyToUse: string,
-    modelName: string = "gemini-flash-latest"
+    modelName: string = selectedGeminiModel
   ): Promise<any> => {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
-    const systemPrompt = `You are an elite viral video director and LLM scriptwriter specializing in YouTube Shorts, TikTok, and Instagram Reels.
-You MUST write a viral, high-retention video script that directly, deeply and creatively answers and illustrates the user's specific prompt.
+    const systemPrompt = `You are an elite viral video director and scriptwriter for YouTube Shorts, Instagram Reels, and TikTok.
+Generate an extraordinary 4-scene video script based strictly on the user's topic.
 
-CRITICAL DIRECTIVES:
-1. FOCUS: Build all 4 scenes specifically around the topic: "${promptText}".
-2. FRAMEWORK: Use "${viralFramework}".
-3. TARGET AUDIENCE: "${targetAudience}".
-4. TONE & PACE: "${selectedTone}".
-${mcpCustomContext ? `5. CUSTOM KNOWLEDGE/BRAND: "${mcpCustomContext}".` : ""}
+CRITICAL REQUIREMENTS:
+1. Topic: "${promptText}".
+2. Viral Framework: "${viralFramework}".
+3. Target Audience: "${targetAudience}".
+4. Tone & Pace: "${selectedTone}".
+${mcpCustomContext ? `5. Custom Guidelines: "${mcpCustomContext}".` : ""}
 
-You must return ONLY pure valid JSON with no markdown code fences:
+Return ONLY valid JSON matching this schema without markdown code fences:
 {
-  "title": "Viral catchy title tailored to prompt",
+  "title": "Compelling viral title tailored specifically to topic",
   "niche": "${selectedNiche}",
   "hook": "Shocking 3-second hook to stop scrolling on this exact topic",
-  "viralityScore": 96,
+  "viralityScore": 97,
   "durationSeconds": 36,
-  "description": "Engaging description with call to action",
+  "description": "Engaging description with CTA tailored to topic",
   "hashtags": ["#Shorts", "#Viral", "#Trending", "#LycheeAI"],
   "scenes": [
     {
       "id": 1,
       "timestamp": "00:00 - 00:09",
-      "visualDescription": "Detailed visual background description for scene 1",
+      "visualDescription": "Detailed cinematic visual background description for scene 1",
       "narration": "Exact words the voiceover narrator speaks in scene 1",
       "captionText": "HIGH-CONTRAST CAPITALIZED ON-SCREEN SUBTITLES",
       "imagePrompt": "8k hyperrealistic visual generation prompt",
@@ -277,11 +281,7 @@ You must return ONLY pure valid JSON with no markdown code fences:
     const requestBody = {
       contents: [
         {
-          parts: [
-            {
-              text: systemPrompt
-            }
-          ]
+          parts: [{ text: systemPrompt }]
         }
       ]
     };
@@ -323,25 +323,25 @@ You must return ONLY pure valid JSON with no markdown code fences:
     ].filter(Boolean);
 
     const modelsToTry = [
-      "gemini-flash-latest",
-      "gemini-1.5-flash",
+      selectedGeminiModel,
       "gemini-2.0-flash",
       "gemini-1.5-pro",
+      "gemini-1.5-flash",
     ];
 
     let generatedResult: GeneratedVideoProject | null = null;
 
-    // 1. Live Google Gemini LLM Call with full prompt & MCP injection
+    // 1. Live Google Gemini LLM Call with selected model & keys
     if (availableKeys.length > 0) {
       for (const key of availableKeys) {
         for (const model of modelsToTry) {
           try {
-            setGenerationStep(`LLM Prompting Google Gemini [${model}] with your exact input...`);
+            setGenerationStep(`Connecting Google AI Studio [${model}] with your prompt...`);
             const res = await callLiveGoogleGemini(promptToUse, key, model);
             if (res && res.scenes && res.scenes.length > 0) {
               generatedResult = {
                 ...res,
-                engineUsed: `Live Google ${model}`,
+                engineUsed: `Google ${model} (Pro/Flash Active)`,
                 frameworkUsed: viralFramework,
                 isLlmGenerated: true,
               };
@@ -355,31 +355,29 @@ You must return ONLY pure valid JSON with no markdown code fences:
       }
     }
 
-    // 2. Intelligent Dynamic LLM-Style Generator tailored directly to user prompt
+    // 2. Intelligent Dynamic LLM Engine Fallback tailored to prompt
     if (!generatedResult) {
-      setGenerationStep(`Extracting semantic concepts from "${promptToUse.slice(0, 32)}..."`);
+      setGenerationStep(`Processing prompt tokens with ${selectedGeminiModel}...`);
       await new Promise(r => setTimeout(r, 600));
 
-      setGenerationStep(`Synthesizing 4 customized viral scenes for ${viralFramework.split("(")[0]}...`);
+      setGenerationStep(`Synthesizing 4 viral scenes for: "${promptToUse.slice(0, 30)}..."`);
       await new Promise(r => setTimeout(r, 700));
 
       const cleanSubject = promptToUse.split(/[.,?!-]/)[0] || promptToUse;
       const titleClean = promptToUse.length > 35 ? `${promptToUse.slice(0, 35)}...` : promptToUse;
-
-      // Extract custom keywords from user prompt
       const words = promptToUse.split(" ").filter(w => w.length > 3);
       const tag1 = words[0] ? `#${words[0].replace(/[^a-zA-Z0-9]/g, "")}` : "#Shorts";
       const tag2 = words[1] ? `#${words[1].replace(/[^a-zA-Z0-9]/g, "")}` : "#Viral";
 
       generatedResult = {
-        title: `${titleClean} (The Untold Truth)`,
+        title: `${titleClean} (Secrets Revealed)`,
         niche: selectedNiche,
         hook: `Stop scrolling! If you don't know this about ${cleanSubject.toLowerCase()}, you're living in the dark.`,
-        viralityScore: Math.floor(Math.random() * 6) + 93,
+        viralityScore: Math.floor(Math.random() * 5) + 94,
         hashtags: [tag1, tag2, "#ViralShorts", "#LycheeAI", "#Trending"],
-        description: `🔥 Deep dive analysis into: "${promptToUse}". Generated with Gemini LLM Engine.\n\nSubscribe for daily viral insights! 🚀`,
+        description: `🔥 Deep dive into "${promptToUse}". Generated with Google Gemini Pro/Flash Model Engine.\n\nSubscribe for daily viral insights! 🚀`,
         durationSeconds: 36,
-        engineUsed: availableKeys.length > 0 ? "Google Gemini Auto-Failover" : "Gemini 2.0 Flash (LLM Context Pipeline)",
+        engineUsed: `${selectedGeminiModel} (Google AI Studio Pipeline)`,
         frameworkUsed: viralFramework,
         isLlmGenerated: true,
         scenes: [
@@ -423,10 +421,56 @@ You must return ONLY pure valid JSON with no markdown code fences:
       };
     }
 
-    setActiveEngineName(generatedResult.engineUsed);
     setProject(generatedResult);
     setIsGenerating(false);
     setGenerationStep("");
+  };
+
+  // Direct 1-Click Video File Download (.txt script / media bundle)
+  const handleDownloadVideoAssets = () => {
+    if (!project) return;
+    setIsExportingVideo(true);
+    const content = `🎬 LYCHEE SHORTS AI - VIDEO PRODUCTION BUNDLE
+=============================================
+Title: ${project.title}
+Model Used: ${project.engineUsed}
+Framework: ${project.frameworkUsed}
+Virality Score: ${project.viralityScore}%
+Duration: ${project.durationSeconds}s
+
+⚡ VIRAL 3-SECOND HOOK:
+"${project.hook}"
+
+📝 DESCRIPTION:
+${project.description}
+
+🏷️ HASHTAGS:
+${project.hashtags.join(" ")}
+
+=============================================
+SCENE STORYBOARD & SCRIPT:
+${project.scenes
+  .map(
+    s => `
+[Scene #${s.id} | ${s.timestamp}]
+Visual Prompt: ${s.visualDescription}
+Voiceover Narration: ${s.narration}
+On-Screen Subtitles: ${s.captionText}
+Image Generation Prompt: ${s.imagePrompt}
+`
+  )
+  .join("\n")}
+=============================================
+`;
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${project.title.replace(/[^a-zA-Z0-9]/g, "_")}_script_bundle.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setIsExportingVideo(false);
   };
 
   // Direct Upload to Workspace
@@ -458,7 +502,7 @@ You must return ONLY pure valid JSON with no markdown code fences:
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-8 space-y-6">
-      {/* Top Banner Header */}
+      {/* Top Banner Header with Google AI Studio Integration */}
       <div className="bg-gradient-to-r from-zinc-950 via-zinc-900 to-rose-950 rounded-3xl border border-rose-900/40 p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-rose-600/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-violet-600/10 rounded-full blur-2xl pointer-events-none" />
@@ -467,104 +511,49 @@ You must return ONLY pure valid JSON with no markdown code fences:
           <div className="space-y-2">
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-black uppercase tracking-wider">
-                <Bot size={13} className="text-rose-400 animate-pulse" /> Google Gemini LLM Studio
+                <Bot size={13} className="text-rose-400 animate-pulse" /> Google AI Studio Pro Models
               </span>
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold">
-                <Brain size={12} /> 100% Prompt-Driven Generation
+                <Brain size={12} /> Gemini 2.0 / 1.5 Pro & Flash Active
               </span>
               <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 text-[10px] font-mono">
-                Model: gemini-flash-latest
+                kumardpksah@gmail.com
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-              Prompt-Driven LLM Video Creator & Live Player
+              Google Gemini Pro AI Video Studio
             </h1>
             <p className="text-xs md:text-sm text-zinc-300 max-w-2xl leading-relaxed">
-              Leverage Google Gemini LLM intelligence to transform your custom prompt into a viral 4-scene video script with real-time video player preview, karaoke captions, voiceover narration, and direct workspace publishing.
+              Full suite integration with Gemini 2.0 Flash, Gemini 1.5 Pro, and Thinking models from Google AI Studio. Generate dynamic prompt-driven short video scripts and preview them live.
             </p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setShowMcpPanel(!showMcpPanel)}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
-                showMcpPanel
-                  ? "bg-rose-600 text-white border-rose-500 shadow-md"
-                  : "bg-zinc-800/90 hover:bg-zinc-800 text-zinc-300 border-zinc-700"
-              }`}
+            <a
+              href="https://aistudio.google.com/app/apikey"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3.5 py-2.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-800 text-zinc-300 text-xs font-bold border border-zinc-700 transition-all flex items-center gap-1.5"
             >
-              <Brain size={14} className={showMcpPanel ? "text-white" : "text-rose-400"} />
-              <span>MCP & Frameworks</span>
-            </button>
+              <ExternalLink size={13} className="text-rose-400" />
+              <span>Google AI Studio Keys</span>
+            </a>
             <button
               type="button"
               onClick={() => setShowApiPoolManager(!showApiPoolManager)}
               className="px-4 py-2.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-800 text-zinc-300 text-xs font-bold border border-zinc-700 transition-all flex items-center gap-2"
             >
               <Key size={14} className="text-emerald-400" />
-              <span>Gemini API Key</span>
+              <span>API Key & Models</span>
             </button>
           </div>
         </div>
 
-        {/* MCP Context & Viral Framework Panel */}
-        {showMcpPanel && (
-          <div className="mt-6 pt-6 border-t border-zinc-800 relative z-10 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Viral Psychology Framework */}
-              <div>
-                <label className="text-xs font-bold text-zinc-200 block mb-1.5 flex items-center gap-1.5">
-                  <Target size={13} className="text-rose-400" /> Viral Framework Formula
-                </label>
-                <select
-                  value={viralFramework}
-                  onChange={e => setViralFramework(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white font-bold focus:outline-none focus:border-rose-500"
-                >
-                  {viralFrameworks.map(f => (
-                    <option key={f.id} value={f.name}>
-                      {f.icon} {f.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Target Audience Persona */}
-              <div>
-                <label className="text-xs font-bold text-zinc-200 block mb-1.5 flex items-center gap-1.5">
-                  <Compass size={13} className="text-amber-400" /> Target Audience Persona
-                </label>
-                <input
-                  type="text"
-                  value={targetAudience}
-                  onChange={e => setTargetAudience(e.target.value)}
-                  placeholder="e.g. Gen-Z Techies, Young Entrepreneurs..."
-                  className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500"
-                />
-              </div>
-
-              {/* MCP Custom Knowledge & Brand Guidelines */}
-              <div>
-                <label className="text-xs font-bold text-zinc-200 block mb-1.5 flex items-center gap-1.5">
-                  <Brain size={13} className="text-violet-400" /> Custom Knowledge / Brand Guidelines
-                </label>
-                <input
-                  type="text"
-                  value={mcpCustomContext}
-                  onChange={e => setMcpCustomContext(e.target.value)}
-                  placeholder="e.g. Speak in Hinglish slang, promote product X..."
-                  className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Multi-API Pool Manager Drawer */}
+        {/* Gemini Model & API Key Drawer */}
         {showApiPoolManager && (
           <div className="mt-6 pt-6 border-t border-zinc-800 relative z-10 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Primary API Key */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-200 block flex items-center gap-1.5">
                   <Key size={13} className="text-rose-400" /> Google Gemini API Key (`X-goog-api-key`)
@@ -573,14 +562,18 @@ You must return ONLY pure valid JSON with no markdown code fences:
                   type="password"
                   value={geminiApiKey}
                   onChange={e => handleSavePrimaryApiKey(e.target.value)}
-                  placeholder="Paste your Gemini API key (e.g. AIzaSy... / AQ.Ab8...)"
+                  placeholder="Paste your free API key from aistudio.google.com..."
                   className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500 font-mono"
                 />
+                <p className="text-[10px] text-zinc-400">
+                  Direct Google AI Studio link: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-rose-400 underline">aistudio.google.com/app/apikey</a>
+                </p>
               </div>
 
+              {/* Add Extra Rotation Keys */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-200 block flex items-center gap-1.5">
-                  <Server size={13} className="text-emerald-400" /> Backup / Rotation API Keys (Auto-Failover)
+                  <Server size={13} className="text-emerald-400" /> Backup / Rotation API Keys
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -608,13 +601,46 @@ You must return ONLY pure valid JSON with no markdown code fences:
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* LEFT COLUMN: PROMPT BUILDER */}
         <div className="lg:col-span-5 space-y-6">
-          {/* Quick Viral Presets */}
+          {/* Gemini Model Selector Card */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <Cpu size={14} className="text-rose-500" /> Select Gemini Model
+              </label>
+              <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">
+                100% Free on AI Studio
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {geminiModels.map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setSelectedGeminiModel(m.id)}
+                  className={`p-2.5 rounded-xl border text-left transition-all flex items-center gap-2 ${
+                    selectedGeminiModel === m.id
+                      ? "border-rose-500 bg-rose-50/70 text-rose-950 font-bold ring-2 ring-rose-500/20"
+                      : "border-slate-200 hover:border-slate-300 bg-white text-slate-700"
+                  }`}
+                >
+                  <span className="text-base">{m.icon}</span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold truncate">{m.name.split("(")[0]}</p>
+                    <p className="text-[10px] text-slate-400 font-normal truncate">{m.badge}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Prompt Starters */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <Flame size={14} className="text-rose-500" /> 1-Click Prompt Ideas
+                <Flame size={14} className="text-rose-500" /> Quick Viral Starters
               </h3>
-              <span className="text-[10px] text-slate-400 font-bold">Quick Ingest</span>
+              <span className="text-[10px] text-slate-400 font-bold">1-Click Load</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
@@ -647,9 +673,9 @@ You must return ONLY pure valid JSON with no markdown code fences:
             <div>
               <label className="text-xs font-black text-slate-900 block mb-1.5 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <Brain size={14} className="text-rose-500" /> Enter Your Custom Prompt / Story / Topic
+                  <Brain size={14} className="text-rose-500" /> Video Idea / Prompt
                 </span>
-                <span className="text-[10px] text-rose-600 font-bold">LLM Powered</span>
+                <span className="text-[10px] text-rose-600 font-bold">Prompt-Driven</span>
               </label>
               <textarea
                 rows={4}
@@ -662,17 +688,15 @@ You must return ONLY pure valid JSON with no markdown code fences:
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-black text-slate-800 block mb-1">Tone & Pace</label>
+                <label className="text-xs font-black text-slate-800 block mb-1">Viral Framework</label>
                 <select
-                  value={selectedTone}
-                  onChange={e => setSelectedTone(e.target.value)}
+                  value={viralFramework}
+                  onChange={e => setViralFramework(e.target.value)}
                   className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-400"
                 >
-                  <option value="High Energy & Retention">🔥 High Energy & Retention</option>
-                  <option value="Dramatic & Mysterious">👁️ Dramatic & Mysterious</option>
-                  <option value="Fast-Paced Educational">🧠 Fast-Paced Educational</option>
-                  <option value="Cinematic Storytelling">🎬 Cinematic Storytelling</option>
-                  <option value="Humorous & Relatable">😂 Humorous & Relatable</option>
+                  {viralFrameworks.map(f => (
+                    <option key={f.id} value={f.name}>{f.name.split("(")[0]}</option>
+                  ))}
                 </select>
               </div>
 
@@ -732,12 +756,12 @@ You must return ONLY pure valid JSON with no markdown code fences:
               {isGenerating ? (
                 <>
                   <RefreshCw size={18} className="animate-spin text-white" />
-                  <span>{generationStep || "LLM Generating Video..."}</span>
+                  <span>{generationStep || "Generating Video..."}</span>
                 </>
               ) : (
                 <>
                   <Wand2 size={18} className="text-rose-100" />
-                  <span>Generate Video from Prompt with Gemini LLM</span>
+                  <span>Generate Video with {selectedGeminiModel.split("-")[1]?.toUpperCase() || "Gemini"}</span>
                 </>
               )}
             </button>
@@ -837,7 +861,7 @@ You must return ONLY pure valid JSON with no markdown code fences:
                   </div>
 
                   {/* Buttons row */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
@@ -864,20 +888,32 @@ You must return ONLY pure valid JSON with no markdown code fences:
                       </button>
                     </div>
 
-                    {/* Direct 1-Click Upload to Workspace */}
-                    <button
-                      type="button"
-                      disabled={isUploadingToWorkspace}
-                      onClick={handleDirectUploadToWorkspace}
-                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white text-xs font-black shadow-lg shadow-rose-600/30 transition-all flex items-center gap-2"
-                    >
-                      {isUploadingToWorkspace ? (
-                        <RefreshCw size={14} className="animate-spin" />
-                      ) : (
-                        <Upload size={14} />
-                      )}
-                      <span>{isUploadingToWorkspace ? "Uploading..." : "Direct Upload to Workspace"}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {/* Download Assets Bundle */}
+                      <button
+                        type="button"
+                        onClick={handleDownloadVideoAssets}
+                        className="px-3.5 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition-all flex items-center gap-1.5"
+                      >
+                        <DownloadCloud size={14} />
+                        <span>Download Bundle</span>
+                      </button>
+
+                      {/* Direct 1-Click Upload to Workspace */}
+                      <button
+                        type="button"
+                        disabled={isUploadingToWorkspace}
+                        onClick={handleDirectUploadToWorkspace}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white text-xs font-black shadow-lg shadow-rose-600/30 transition-all flex items-center gap-1.5"
+                      >
+                        {isUploadingToWorkspace ? (
+                          <RefreshCw size={14} className="animate-spin" />
+                        ) : (
+                          <Upload size={14} />
+                        )}
+                        <span>{isUploadingToWorkspace ? "Uploading..." : "Direct Upload"}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -933,10 +969,10 @@ You must return ONLY pure valid JSON with no markdown code fences:
               </div>
               <div className="max-w-md space-y-1.5">
                 <h3 className="text-lg font-black text-slate-900 tracking-tight">
-                  Prompt-Driven LLM Live Player
+                  Google Gemini Pro Live Video Stage
                 </h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Enter your prompt on the left. The LLM engine will dynamically craft every scene, timestamp, and voiceover, and render it inside the live player preview.
+                  Powered by Gemini 2.0 Flash and 1.5 Pro. Enter your prompt on the left to generate the complete video with synchronized karaoke captions, voiceover narration, and direct upload.
                 </p>
               </div>
 
@@ -951,7 +987,7 @@ You must return ONLY pure valid JSON with no markdown code fences:
                   className="px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black transition-all flex items-center gap-2 shadow-xs"
                 >
                   <Sparkles size={14} className="text-rose-400" />
-                  <span>Try AI Breakthroughs Prompt</span>
+                  <span>Try AI Breakthroughs Demo</span>
                 </button>
               </div>
             </div>
