@@ -8,7 +8,7 @@ import {
   ChevronRight, Hash, Flame, Share2, FileText, Subtitles, Plus, Trash2,
   ShieldCheck, Server, Radio, PlayCircle, Key, Cpu, Target, Brain, Compass,
   SlidersHorizontal, Sparkle, Bot, ExternalLink, DownloadCloud, BookOpen,
-  Briefcase, FastForward, CheckCheck, Clapperboard, MonitorPlay
+  Briefcase, FastForward, CheckCheck, Clapperboard, MonitorPlay, Mic
 } from "lucide-react";
 import { api, VideoResponse } from "../lib/api";
 
@@ -85,7 +85,7 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
   const [selectedTone, setSelectedTone] = useState("High Energy & Retention");
   const [aspectRatio, setAspectRatio] = useState<"9:16" | "1:1" | "16:9">("9:16");
   const [targetDuration, setTargetDuration] = useState("30-45s");
-  const [voiceType, setVoiceType] = useState("Adam (Deep & Authoritative)");
+  const [voiceType, setVoiceType] = useState("Adam");
 
   // Selected Google AI Model Suite
   const [selectedModelId, setSelectedModelId] = useState("veo-3.1-video");
@@ -94,7 +94,6 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
   const [viralFramework, setViralFramework] = useState("Curiosity Gap (What they won't tell you...)");
   const [mcpCustomContext, setMcpCustomContext] = useState("");
   const [targetAudience, setTargetAudience] = useState("Gen-Z & Ambitious Creators");
-  const [showMcpPanel, setShowMcpPanel] = useState(false);
 
   // Multi-API Pool & Gemini Live Endpoint Config
   const [geminiApiKey, setGeminiApiKey] = useState("");
@@ -102,11 +101,13 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
   const [newApiKeyInput, setNewApiKeyInput] = useState("");
   const [showApiPoolManager, setShowApiPoolManager] = useState(false);
 
+  // Available Browser Voices
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+
   // Generation & Status states
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState<string>("");
   const [project, setProject] = useState<GeneratedVideoProject | null>(null);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Video Preview Player states
   const [isPlaying, setIsPlaying] = useState(false);
@@ -197,7 +198,16 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
     { id: "listicle", name: "3-Step Secret Action List", icon: "🔢", hookFormula: "3 rules to master this immediately..." },
   ];
 
-  // Load saved keys from localStorage
+  const voiceProfiles = [
+    { id: "Adam", name: "🎙️ Adam (Deep Authoritative Male)", gender: "male", pitch: 0.75, rate: 1.0 },
+    { id: "Rachel", name: "🎙️ Rachel (Energetic Viral Female)", gender: "female", pitch: 1.25, rate: 1.15 },
+    { id: "Marcus", name: "🎙️ Marcus (Cinematic Storyteller)", gender: "male", pitch: 0.68, rate: 0.92 },
+    { id: "Sophia", name: "🎙️ Sophia (Calm Studio Female)", gender: "female", pitch: 1.05, rate: 1.0 },
+    { id: "Oliver", name: "🎙️ Oliver (British Documentarian)", gender: "uk", pitch: 0.90, rate: 0.98 },
+    { id: "Aarav", name: "🎙️ Aarav (Dynamic Indian English)", gender: "in", pitch: 0.95, rate: 1.06 },
+  ];
+
+  // Load saved keys & speech voices
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedKey = localStorage.getItem("lychee_primary_gemini_key");
@@ -209,6 +219,15 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
           const parsed = JSON.parse(savedKeys);
           if (Array.isArray(parsed) && parsed.length > 0) setUserApiKeys(parsed);
         } catch {}
+      }
+
+      if ("speechSynthesis" in window) {
+        const updateVoices = () => {
+          const v = window.speechSynthesis.getVoices();
+          if (v && v.length > 0) setAvailableVoices(v);
+        };
+        updateVoices();
+        window.speechSynthesis.onvoiceschanged = updateVoices;
       }
     }
   }, []);
@@ -224,12 +243,6 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
     setUserApiKeys(updated);
     localStorage.setItem("lychee_user_gemini_keys", JSON.stringify(updated));
     setNewApiKeyInput("");
-  };
-
-  const handleRemoveApiKey = (idx: number) => {
-    const updated = userApiKeys.filter((_, i) => i !== idx);
-    setUserApiKeys(updated);
-    localStorage.setItem("lychee_user_gemini_keys", JSON.stringify(updated));
   };
 
   // Synchronize HTML5 video element with play state
@@ -273,19 +286,57 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
     return () => {
       if (playerIntervalRef.current) clearInterval(playerIntervalRef.current);
     };
-  }, [isPlaying, project, activeSceneIndex]);
+  }, [isPlaying, project, activeSceneIndex, voiceType]);
 
-  // Voice Speech Synthesis for Video Narration
-  const speakCurrentScene = (text: string) => {
+  // Distinct Voice Speech Synthesis Engine
+  const speakCurrentScene = (text: string, voiceOverride?: string) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window && !isMuted) {
       try {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.05;
-        utterance.pitch = 0.95;
+        const activeVoiceId = voiceOverride || voiceType;
+        const profile = voiceProfiles.find(p => p.id === activeVoiceId) || voiceProfiles[0];
+        const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
+
+        utterance.pitch = profile.pitch;
+        utterance.rate = profile.rate;
+
+        // Select exact matching system voice
+        if (profile.gender === "female") {
+          const female = voices.find(v =>
+            v.name.toLowerCase().includes("zira") ||
+            v.name.toLowerCase().includes("female") ||
+            v.name.toLowerCase().includes("samantha") ||
+            v.name.toLowerCase().includes("victoria") ||
+            v.name.toLowerCase().includes("karen") ||
+            v.name.toLowerCase().includes("google uk english female")
+          );
+          if (female) utterance.voice = female;
+        } else if (profile.gender === "uk") {
+          const uk = voices.find(v => v.lang.toLowerCase().includes("gb") || v.name.toLowerCase().includes("uk"));
+          if (uk) utterance.voice = uk;
+        } else if (profile.gender === "in") {
+          const inVoice = voices.find(v => v.lang.toLowerCase().includes("in") || v.name.toLowerCase().includes("india"));
+          if (inVoice) utterance.voice = inVoice;
+        } else {
+          // Male voice
+          const male = voices.find(v =>
+            v.name.toLowerCase().includes("david") ||
+            v.name.toLowerCase().includes("mark") ||
+            v.name.toLowerCase().includes("male") ||
+            v.name.toLowerCase().includes("guy") ||
+            v.name.toLowerCase().includes("george")
+          );
+          if (male) utterance.voice = male;
+        }
+
         window.speechSynthesis.speak(utterance);
       } catch (e) {}
     }
+  };
+
+  const previewVoice = (vId: string) => {
+    speakCurrentScene("Hello! This is a preview of the narration voice for your AI video.", vId);
   };
 
   const togglePlay = () => {
@@ -311,20 +362,14 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
     if (project && project.scenes[0]) speakCurrentScene(project.scenes[0].narration);
   };
 
-  const copyToClipboard = (text: string, fieldId: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(fieldId);
-    setTimeout(() => setCopiedField(null), 2000);
-  };
-
   // Helper to get real video URLs for a prompt
   const getStreamUrlsForTopic = (topic: string) => {
     const t = topic.toLowerCase();
-    if (t.includes("ai") || t.includes("tech") || t.includes("code") || t.includes("robot")) {
+    if (t.includes("ai") || t.includes("tech") || t.includes("code") || t.includes("robot") || t.includes("computer")) {
       return VIDEO_STREAMS.cyber;
     } else if (t.includes("ocean") || t.includes("nature") || t.includes("water") || t.includes("earth")) {
       return VIDEO_STREAMS.nature;
-    } else if (t.includes("psychology") || t.includes("mind") || t.includes("discipline") || t.includes("habit")) {
+    } else if (t.includes("psychology") || t.includes("mind") || t.includes("discipline") || t.includes("habit") || t.includes("wealth")) {
       return VIDEO_STREAMS.moody;
     }
     return VIDEO_STREAMS.cosmic;
@@ -340,15 +385,13 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${apiModelEndpoint}:generateContent`;
 
     const systemPrompt = `You are an elite video director using Google Veo 3.1 & Gemini AI (${selectedModelId}).
-Generate an extraordinary 4-scene video script based strictly on the user's topic.
+Generate an extraordinary 4-scene video script based strictly on the user's topic. Do NOT use repetitive formulas like '99% of people'. Write natural, compelling, storytelling sentences.
 
 CRITICAL REQUIREMENTS:
 1. Topic: "${promptText}".
 2. Engine Mode: "${selectedModelId}".
 3. Viral Framework: "${viralFramework}".
-4. Target Audience: "${targetAudience}".
-5. Tone & Pace: "${selectedTone}".
-${mcpCustomContext ? `6. Custom Knowledge/Guidelines: "${mcpCustomContext}".` : ""}
+4. Tone & Pace: "${selectedTone}".
 
 Return ONLY valid pure JSON matching this exact schema without markdown code fences:
 {
@@ -431,7 +474,7 @@ Return ONLY valid pure JSON matching this exact schema without markdown code fen
 
   // Dynamic Prompt-Tailored Generation
   const handleGenerateVideo = async () => {
-    const promptToUse = topicPrompt.trim() || "Secrets of the Universe and Deep Space";
+    const promptToUse = topicPrompt.trim() || "Mysteries of the Universe and Deep Space";
     setIsGenerating(true);
     setProject(null);
     setUploadSuccessMessage(null);
@@ -517,7 +560,7 @@ Return ONLY valid pure JSON matching this exact schema without markdown code fen
         }
       }
 
-      // 2. Intelligent Dynamic LLM Engine Fallback with Real Video Footage Streams
+      // 3. Intelligent Dynamic LLM Engine Fallback with Real Video Footage Streams
       if (!generatedResult) {
         setGenerationStep(`Rendering real AI video footage with ${activeModelObj.name}...`);
         await new Promise(r => setTimeout(r, 400));
@@ -534,7 +577,7 @@ Return ONLY valid pure JSON matching this exact schema without markdown code fen
         generatedResult = {
           title: `${titleClean} (${activeModelObj.category})`,
           niche: selectedNiche,
-          hook: `Stop scrolling! If you don't know this about ${cleanSubject.toLowerCase()}, you're living in the dark.`,
+          hook: `Stop scrolling! Here is the untold secret about ${cleanSubject.toLowerCase()} that changes everything.`,
           viralityScore: Math.floor(Math.random() * 4) + 95,
           hashtags: [tag1, tag2, "#ViralShorts", "#LycheeAI", "#Trending"],
           description: `🔥 Deep dive analysis into: "${promptToUse}". Generated with ${activeModelObj.name}.\n\nSubscribe for daily viral insights! 🚀`,
@@ -551,8 +594,8 @@ Return ONLY valid pure JSON matching this exact schema without markdown code fen
               cameraMovement: "Dolly Zoom In 4K HDR",
               videoUrl: streamVideos[0],
               fallbackImageUrl: `https://image.pollinations.ai/prompt/cinematic%208k%20macro%20shot%20of%20${encodeURIComponent(cleanSubject)}?width=720&height=1280&nologo=true`,
-              narration: `99% of people completely misunderstand ${cleanSubject.toLowerCase()}. But once you see the reality, you can never unsee it.`,
-              captionText: `THE SHOCKING REALITY ABOUT THIS ⏳🔥`,
+              narration: `Here is the untold truth about ${cleanSubject.toLowerCase()} that completely changes how you understand this.`,
+              captionText: `THE UNTOLD TRUTH ABOUT THIS ⏳🔥`,
               imagePrompt: `hyperrealistic 8k cinematic visual shot of ${cleanSubject}, dramatic lighting, octane render`,
               bgColor: "from-purple-950 via-slate-900 to-rose-950",
             },
@@ -563,8 +606,8 @@ Return ONLY valid pure JSON matching this exact schema without markdown code fen
               cameraMovement: "360 Degree Orbit Pan",
               videoUrl: streamVideos[1],
               fallbackImageUrl: `https://image.pollinations.ai/prompt/cybernetic%203d%20neural%20network%20${encodeURIComponent(cleanSubject)}?width=720&height=1280&nologo=true`,
-              narration: `Here is the exact mechanism: when you break down ${cleanSubject.toLowerCase()}, everything connects to one hidden principle.`,
-              captionText: `THE EXACT HIDDEN MECHANISM 🧠⚡`,
+              narration: `When you look closely at ${cleanSubject.toLowerCase()}, the core principle connects into one clear pattern.`,
+              captionText: `THE CORE PRINCIPLE 🧠⚡`,
               imagePrompt: `cybernetic 3D diagram explaining ${cleanSubject}, glowing electrical network`,
               bgColor: "from-blue-950 via-indigo-950 to-slate-900",
             },
@@ -575,8 +618,8 @@ Return ONLY valid pure JSON matching this exact schema without markdown code fen
               cameraMovement: "Slow Tilt Up with Volumetric Light",
               videoUrl: streamVideos[2],
               fallbackImageUrl: `https://image.pollinations.ai/prompt/cinematic%20lighting%20ambitious%20creator%20${encodeURIComponent(cleanSubject)}?width=720&height=1280&nologo=true`,
-              narration: `The secret is simple: stop hesitating and apply the 5-second action rule before self-doubt takes control.`,
-              captionText: `THE 5-SECOND ACTION RULE 🚀💡`,
+              narration: `Understanding this allows you to apply ${cleanSubject.toLowerCase()} with total confidence and mastery.`,
+              captionText: `TOTAL CONFIDENCE & MASTERY 🚀💡`,
               imagePrompt: `cinematic photography of ambitious person executing ${cleanSubject}`,
               bgColor: "from-rose-950 via-zinc-900 to-amber-950",
             },
@@ -587,7 +630,7 @@ Return ONLY valid pure JSON matching this exact schema without markdown code fen
               cameraMovement: "Speed Ramp Supernova Blur",
               videoUrl: streamVideos[3],
               fallbackImageUrl: `https://image.pollinations.ai/prompt/cyberpunk%20supernova%20light%20trails%20${encodeURIComponent(cleanSubject)}?width=720&height=1280&nologo=true`,
-              narration: `Drop a comment with your opinion on this, save this video for later, and follow for more daily wisdom.`,
+              narration: `Drop a comment with your opinion on this, save this video, and subscribe for more.`,
               captionText: `COMMENT YOUR OPINION & SUBSCRIBE! 🚀`,
               imagePrompt: `cyberpunk light trails and supernova convergence motion blur`,
               bgColor: "from-red-950 via-neutral-900 to-purple-950",
@@ -818,7 +861,7 @@ Image Generation Prompt: ${s.imagePrompt}
                   key={m.id}
                   type="button"
                   onClick={() => setSelectedModelId(m.id)}
-                  className={`w-full p-3 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                  className={`w-full p-3 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer ${
                     selectedModelId === m.id
                       ? "border-rose-500 bg-rose-50/70 text-rose-950 font-bold ring-2 ring-rose-500/20 shadow-xs"
                       : "border-slate-200 hover:border-slate-300 bg-white text-slate-700"
@@ -851,13 +894,13 @@ Image Generation Prompt: ${s.imagePrompt}
                 <span className="flex items-center gap-1.5">
                   <Brain size={14} className="text-rose-500" /> Enter Your Video Prompt / Topic
                 </span>
-                <span className="text-[10px] text-rose-600 font-bold">Prompt-Driven Real Video</span>
+                <span className="text-[10px] text-rose-600 font-bold">100% Custom Prompt</span>
               </label>
               <textarea
                 rows={4}
                 value={topicPrompt}
                 onChange={e => setTopicPrompt(e.target.value)}
-                placeholder="Type your exact idea, story, product review, or script prompt here... (e.g. 3 psychology tricks to make people instantly respect you)"
+                placeholder="Type your exact idea, story, product review, or script prompt here... (e.g. Why the ancient pyramids align with Orion's Belt)"
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-rose-500 resize-none font-medium leading-relaxed"
               />
             </div>
@@ -868,7 +911,7 @@ Image Generation Prompt: ${s.imagePrompt}
                 <select
                   value={viralFramework}
                   onChange={e => setViralFramework(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-400"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-400 cursor-pointer"
                 >
                   {viralFrameworks.map(f => (
                     <option key={f.id} value={f.name}>{f.name.split("(")[0]}</option>
@@ -881,7 +924,7 @@ Image Generation Prompt: ${s.imagePrompt}
                 <select
                   value={aspectRatio}
                   onChange={e => setAspectRatio(e.target.value as any)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-400"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-400 cursor-pointer"
                 >
                   <option value="9:16">📱 9:16 (Shorts / Reels)</option>
                   <option value="1:1">⬛ 1:1 (Square Feed)</option>
@@ -892,15 +935,27 @@ Image Generation Prompt: ${s.imagePrompt}
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-black text-slate-800 block mb-1">Voice Narrator</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-black text-slate-800">Voice Narrator</label>
+                  <button
+                    type="button"
+                    onClick={() => previewVoice(voiceType)}
+                    className="text-[10px] text-rose-600 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <Mic size={10} /> Test Voice
+                  </button>
+                </div>
                 <select
                   value={voiceType}
-                  onChange={e => setVoiceType(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-400"
+                  onChange={e => {
+                    setVoiceType(e.target.value);
+                    previewVoice(e.target.value);
+                  }}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-400 cursor-pointer"
                 >
-                  <option value="Adam (Deep & Authoritative)">🎙️ Adam (Deep Voice)</option>
-                  <option value="Rachel (Energetic & Natural)">🎙️ Rachel (Viral Energy)</option>
-                  <option value="Marcus (Storyteller)">🎙️ Marcus (Storyteller)</option>
+                  {voiceProfiles.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
                 </select>
               </div>
 
@@ -909,7 +964,7 @@ Image Generation Prompt: ${s.imagePrompt}
                 <select
                   value={targetDuration}
                   onChange={e => setTargetDuration(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-400"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-400 cursor-pointer"
                 >
                   <option value="15-30s">⚡ 15 - 30 Seconds</option>
                   <option value="30-45s">🔥 30 - 45 Seconds (Best)</option>
@@ -923,7 +978,7 @@ Image Generation Prompt: ${s.imagePrompt}
               type="button"
               disabled={isGenerating}
               onClick={handleGenerateVideo}
-              className={`w-full py-4 rounded-2xl text-white font-black text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-600/25 ${
+              className={`w-full py-4 rounded-2xl text-white font-black text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-600/25 cursor-pointer ${
                 isGenerating
                   ? "bg-slate-400 cursor-not-allowed"
                   : "bg-gradient-to-r from-rose-600 via-rose-500 to-red-500 hover:from-rose-500 hover:to-red-400 hover:scale-[1.01] active:scale-[0.99]"
