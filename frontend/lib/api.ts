@@ -277,6 +277,8 @@ export const api = {
   },
   gemini: {
     getModels: () => request<any[]>("/api/v1/gemini/models"),
+    generate: (body: { prompt: string; model?: string; tone?: string; framework?: string; niche?: string; apiKey?: string }) =>
+      request<any>("/api/v1/gemini/generate", { method: "POST", body: JSON.stringify(body) }),
     publish: (body: { title: string; durationSeconds: number; viralityScore: number; hook?: string; description?: string; hashtags?: string[]; model: string }) =>
       request<any>("/api/v1/gemini/publish", { method: "POST", body: JSON.stringify(body) }),
   },

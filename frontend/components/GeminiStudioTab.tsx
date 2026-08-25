@@ -459,8 +459,46 @@ Return ONLY valid pure JSON matching this exact schema without markdown code fen
     let generatedResult: GeneratedVideoProject | null = null;
 
     try {
-      // 1. Live Google Gemini / Veo 3.1 LLM Call with selected model
-      if (availableKeys.length > 0) {
+      // 1. Call Backend Gemini API Endpoint (100% Dynamic Prompt Processing)
+      setGenerationStep(`Connecting Google AI Suite [${activeModelObj.name}]...`);
+      try {
+        const backendRes = await api.gemini.generate({
+          prompt: promptToUse,
+          model: selectedModelId,
+          tone: selectedTone,
+          framework: viralFramework,
+          niche: selectedNiche,
+          apiKey: geminiApiKey.trim() || undefined,
+        });
+
+        if (backendRes && backendRes.scenes && backendRes.scenes.length > 0) {
+          const enhancedScenes = backendRes.scenes.map((s: any, idx: number) => ({
+            ...s,
+            videoUrl: s.videoUrl || streamVideos[idx % streamVideos.length],
+            fallbackImageUrl: s.fallbackImageUrl || `https://image.pollinations.ai/prompt/${encodeURIComponent(s.imagePrompt || promptToUse)}?width=720&height=1280&nologo=true`,
+          }));
+
+          generatedResult = {
+            title: backendRes.title || `${promptToUse} (Secrets Revealed)`,
+            niche: backendRes.niche || selectedNiche,
+            hook: backendRes.hook || `Stop scrolling! If you don't know the truth about ${promptToUse}, you're missing out.`,
+            viralityScore: backendRes.viralityScore || 98,
+            hashtags: backendRes.hashtags || ["#Shorts", "#Viral", "#LycheeAI"],
+            description: backendRes.description || `Generated with ${activeModelObj.name}`,
+            durationSeconds: backendRes.durationSeconds || 36,
+            scenes: enhancedScenes,
+            engineUsed: activeModelObj.name,
+            frameworkUsed: viralFramework,
+            isLlmGenerated: true,
+            modelMode: activeModelObj.mode,
+          };
+        }
+      } catch (err) {
+        console.warn("Backend generation failed, trying direct Google AI call...", err);
+      }
+
+      // 2. Live Direct Google Gemini / Veo 3.1 LLM Call if backend was offline
+      if (!generatedResult && availableKeys.length > 0) {
         for (const key of availableKeys) {
           try {
             setGenerationStep(`Connecting [${activeModelObj.name}] with your prompt...`);
