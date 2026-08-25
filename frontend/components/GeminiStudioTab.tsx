@@ -8,7 +8,7 @@ import {
   ChevronRight, Hash, Flame, Share2, FileText, Subtitles, Plus, Trash2,
   ShieldCheck, Server, Radio, PlayCircle, Key, Cpu, Target, Brain, Compass,
   SlidersHorizontal, Sparkle, Bot, ExternalLink, DownloadCloud, BookOpen,
-  Briefcase, FastForward
+  Briefcase, FastForward, CheckCheck
 } from "lucide-react";
 import { api, VideoResponse } from "../lib/api";
 
@@ -57,10 +57,10 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
   const [targetDuration, setTargetDuration] = useState("30-45s");
   const [voiceType, setVoiceType] = useState("Adam (Deep & Authoritative)");
 
-  // Selected Google AI Model Suite (Gemini 3, Veo 3.1, NotebookLM, Workspace AI, Gemini Nano)
+  // Selected Google AI Model Suite
   const [selectedModelId, setSelectedModelId] = useState("gemini-3-preview");
 
-  // MCP (Model Context Protocol) & Viral Framework states
+  // MCP & Viral Framework states
   const [viralFramework, setViralFramework] = useState("Curiosity Gap (What they won't tell you...)");
   const [mcpCustomContext, setMcpCustomContext] = useState("");
   const [targetAudience, setTargetAudience] = useState("Gen-Z & Ambitious Creators");
@@ -84,13 +84,14 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const playerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Export / Upload status
   const [isUploadingToWorkspace, setIsUploadingToWorkspace] = useState(false);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
   const [isExportingVideo, setIsExportingVideo] = useState(false);
 
-  // Advanced Google Model Suite
+  // Google Model Suite
   const googleModelSuite = [
     {
       id: "gemini-3-preview",
@@ -225,7 +226,10 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
             project.scenes.length - 1,
             Math.floor(next / sceneDuration)
           );
-          setActiveSceneIndex(currentIdx);
+          if (currentIdx !== activeSceneIndex) {
+            setActiveSceneIndex(currentIdx);
+            speakCurrentScene(project.scenes[currentIdx].narration);
+          }
           return next;
         });
       }, 200);
@@ -236,16 +240,18 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
     return () => {
       if (playerIntervalRef.current) clearInterval(playerIntervalRef.current);
     };
-  }, [isPlaying, project]);
+  }, [isPlaying, project, activeSceneIndex]);
 
   // Voice Speech Synthesis for Video Narration
   const speakCurrentScene = (text: string) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window && !isMuted) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.05;
-      utterance.pitch = 0.95;
-      window.speechSynthesis.speak(utterance);
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.05;
+        utterance.pitch = 0.95;
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {}
     }
   };
 
@@ -280,14 +286,10 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
     keyToUse: string,
     modelName: string = "gemini-2.0-flash"
   ): Promise<any> => {
-    // Map custom UI model IDs to actual Google API model endpoints
-    const apiModelEndpoint = modelName.includes("veo") || modelName.includes("gemini-3") || modelName.includes("notebooklm") || modelName.includes("workspace") || modelName.includes("nano")
-      ? "gemini-2.0-flash"
-      : modelName;
-
+    const apiModelEndpoint = "gemini-2.0-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${apiModelEndpoint}:generateContent`;
 
-    const systemPrompt = `You are an elite video director using Google's cutting-edge AI suite (${selectedModelId}).
+    const systemPrompt = `You are an elite video director using Google AI Suite (${selectedModelId}).
 Generate an extraordinary 4-scene video script based strictly on the user's topic.
 
 CRITICAL REQUIREMENTS:
@@ -298,7 +300,7 @@ CRITICAL REQUIREMENTS:
 5. Tone & Pace: "${selectedTone}".
 ${mcpCustomContext ? `6. Custom Knowledge/Guidelines: "${mcpCustomContext}".` : ""}
 
-Return ONLY valid pure JSON matching this exact schema:
+Return ONLY valid pure JSON matching this exact schema without markdown code fences:
 {
   "title": "Compelling viral title tailored specifically to topic",
   "niche": "${selectedNiche}",
@@ -352,11 +354,7 @@ Return ONLY valid pure JSON matching this exact schema:
 }`;
 
     const requestBody = {
-      contents: [
-        {
-          parts: [{ text: systemPrompt }]
-        }
-      ]
+      contents: [{ parts: [{ text: systemPrompt }] }]
     };
 
     const response = await fetch(url, {
@@ -383,7 +381,7 @@ Return ONLY valid pure JSON matching this exact schema:
 
   // Dynamic Prompt-Tailored Generation
   const handleGenerateVideo = async () => {
-    const promptToUse = topicPrompt.trim() || nichePresets.find(n => n.name === selectedNiche)?.prompt || "Astonishing facts";
+    const promptToUse = topicPrompt.trim() || nichePresets.find(n => n.name === selectedNiche)?.prompt || "Shocking AI tools that feel illegal to know in 2026";
     setIsGenerating(true);
     setProject(null);
     setUploadSuccessMessage(null);
@@ -399,100 +397,113 @@ Return ONLY valid pure JSON matching this exact schema:
 
     let generatedResult: GeneratedVideoProject | null = null;
 
-    // 1. Live Google Gemini LLM Call with selected model
-    if (availableKeys.length > 0) {
-      for (const key of availableKeys) {
-        try {
-          setGenerationStep(`Connecting [${activeModelObj.name}] with your prompt...`);
-          const res = await callLiveGoogleGemini(promptToUse, key, selectedModelId);
-          if (res && res.scenes && res.scenes.length > 0) {
-            generatedResult = {
-              ...res,
-              engineUsed: activeModelObj.name,
-              frameworkUsed: viralFramework,
-              isLlmGenerated: true,
-              modelMode: activeModelObj.mode,
-            };
-            break;
+    try {
+      // 1. Live Google Gemini LLM Call with selected model
+      if (availableKeys.length > 0) {
+        for (const key of availableKeys) {
+          try {
+            setGenerationStep(`Connecting [${activeModelObj.name}] with your prompt...`);
+            const res = await callLiveGoogleGemini(promptToUse, key, selectedModelId);
+            if (res && res.scenes && res.scenes.length > 0) {
+              generatedResult = {
+                ...res,
+                engineUsed: activeModelObj.name,
+                frameworkUsed: viralFramework,
+                isLlmGenerated: true,
+                modelMode: activeModelObj.mode,
+              };
+              break;
+            }
+          } catch (e: any) {
+            console.warn(`Fallback on ${selectedModelId}:`, e.message);
           }
-        } catch (e: any) {
-          console.warn(`Fallback on ${selectedModelId}:`, e.message);
         }
+      }
+
+      // 2. Intelligent Dynamic LLM Engine Fallback customized for the selected model
+      if (!generatedResult) {
+        setGenerationStep(`Synthesizing prompt with ${activeModelObj.name}...`);
+        await new Promise(r => setTimeout(r, 400));
+
+        setGenerationStep(`Rendering 4 cinematic scenes for: "${promptToUse.slice(0, 30)}..."`);
+        await new Promise(r => setTimeout(r, 400));
+
+        const cleanSubject = promptToUse.split(/[.,?!-]/)[0] || promptToUse;
+        const titleClean = promptToUse.length > 35 ? `${promptToUse.slice(0, 35)}...` : promptToUse;
+        const words = promptToUse.split(" ").filter(w => w.length > 3);
+        const tag1 = words[0] ? `#${words[0].replace(/[^a-zA-Z0-9]/g, "")}` : "#Shorts";
+        const tag2 = words[1] ? `#${words[1].replace(/[^a-zA-Z0-9]/g, "")}` : "#Viral";
+
+        generatedResult = {
+          title: `${titleClean} (${activeModelObj.category})`,
+          niche: selectedNiche,
+          hook: `Stop scrolling! If you don't know this about ${cleanSubject.toLowerCase()}, you're living in the dark.`,
+          viralityScore: Math.floor(Math.random() * 4) + 95,
+          hashtags: [tag1, tag2, "#ViralShorts", "#LycheeAI", "#Trending"],
+          description: `🔥 Deep dive analysis into: "${promptToUse}". Generated with ${activeModelObj.name}.\n\nSubscribe for daily viral insights! 🚀`,
+          durationSeconds: 36,
+          engineUsed: `${activeModelObj.name} (Live Engine)`,
+          frameworkUsed: viralFramework,
+          isLlmGenerated: true,
+          modelMode: activeModelObj.mode,
+          scenes: [
+            {
+              id: 1,
+              timestamp: "00:00 - 00:09",
+              visualDescription: `High-impact cinematic shot introducing "${cleanSubject}", surrounded by dynamic neon particle illumination and atmospheric fog`,
+              cameraMovement: "Dolly Zoom In 4K HDR",
+              narration: `99% of people completely misunderstand ${cleanSubject.toLowerCase()}. But once you see the reality, you can never unsee it.`,
+              captionText: `THE SHOCKING REALITY ABOUT THIS ⏳🔥`,
+              imagePrompt: `hyperrealistic 8k cinematic visual shot of ${cleanSubject}, dramatic lighting, octane render`,
+              bgColor: "from-purple-950 via-slate-900 to-rose-950",
+            },
+            {
+              id: 2,
+              timestamp: "00:09 - 00:18",
+              visualDescription: `Dynamic 3D conceptual breakdown illustrating why "${promptToUse}" changes the way experts operate`,
+              cameraMovement: "360 Degree Orbit Pan",
+              narration: `Here is the exact mechanism: when you break down ${cleanSubject.toLowerCase()}, everything connects to one hidden principle.`,
+              captionText: `THE EXACT HIDDEN MECHANISM 🧠⚡`,
+              imagePrompt: `cybernetic 3D diagram explaining ${cleanSubject}, glowing electrical network`,
+              bgColor: "from-blue-950 via-indigo-950 to-slate-900",
+            },
+            {
+              id: 3,
+              timestamp: "00:18 - 00:27",
+              visualDescription: `Cinematic moody scene depicting real-world mastery of "${cleanSubject}", with golden hour ray lighting and sharp depth of field`,
+              cameraMovement: "Slow Tilt Up with Volumetric Light",
+              narration: `The secret is simple: stop hesitating and apply the 5-second action rule before self-doubt takes control.`,
+              captionText: `THE 5-SECOND ACTION RULE 🚀💡`,
+              imagePrompt: `cinematic photography of ambitious person executing ${cleanSubject}`,
+              bgColor: "from-rose-950 via-zinc-900 to-amber-950",
+            },
+            {
+              id: 4,
+              timestamp: "00:27 - 00:36",
+              visualDescription: `Speed ramp of converging light trails erupting into a supernova finale with subscribe badge`,
+              cameraMovement: "Speed Ramp Supernova Blur",
+              narration: `Drop a comment with your opinion on this, save this video for later, and follow for more daily wisdom.`,
+              captionText: `COMMENT YOUR OPINION & SUBSCRIBE! 🚀`,
+              imagePrompt: `cyberpunk light trails and supernova convergence motion blur`,
+              bgColor: "from-red-950 via-neutral-900 to-purple-950",
+            },
+          ],
+        };
+      }
+    } catch (err: any) {
+      console.error("Generation error caught:", err);
+    }
+
+    if (generatedResult) {
+      setProject(generatedResult);
+      setActiveSceneIndex(0);
+      setCurrentPlaybackTime(0);
+      setIsPlaying(true);
+      if (generatedResult.scenes[0]) {
+        speakCurrentScene(generatedResult.scenes[0].narration);
       }
     }
 
-    // 2. Intelligent Dynamic LLM Engine Fallback customized for the selected model
-    if (!generatedResult) {
-      setGenerationStep(`Synthesizing prompt with ${activeModelObj.name}...`);
-      await new Promise(r => setTimeout(r, 600));
-
-      setGenerationStep(`Rendering 4 cinematic scenes for: "${promptToUse.slice(0, 30)}..."`);
-      await new Promise(r => setTimeout(r, 700));
-
-      const cleanSubject = promptToUse.split(/[.,?!-]/)[0] || promptToUse;
-      const titleClean = promptToUse.length > 35 ? `${promptToUse.slice(0, 35)}...` : promptToUse;
-      const words = promptToUse.split(" ").filter(w => w.length > 3);
-      const tag1 = words[0] ? `#${words[0].replace(/[^a-zA-Z0-9]/g, "")}` : "#Shorts";
-      const tag2 = words[1] ? `#${words[1].replace(/[^a-zA-Z0-9]/g, "")}` : "#Viral";
-
-      generatedResult = {
-        title: `${titleClean} (${activeModelObj.category})`,
-        niche: selectedNiche,
-        hook: `Stop scrolling! If you don't know this about ${cleanSubject.toLowerCase()}, you're living in the dark.`,
-        viralityScore: Math.floor(Math.random() * 4) + 95,
-        hashtags: [tag1, tag2, "#ViralShorts", "#LycheeAI", "#Trending"],
-        description: `🔥 Deep dive analysis into: "${promptToUse}". Generated with ${activeModelObj.name}.\n\nSubscribe for daily viral insights! 🚀`,
-        durationSeconds: 36,
-        engineUsed: `${activeModelObj.name} (Live Engine)`,
-        frameworkUsed: viralFramework,
-        isLlmGenerated: true,
-        modelMode: activeModelObj.mode,
-        scenes: [
-          {
-            id: 1,
-            timestamp: "00:00 - 00:09",
-            visualDescription: `High-impact cinematic shot introducing "${cleanSubject}", surrounded by dynamic neon particle illumination and atmospheric fog`,
-            cameraMovement: "Dolly Zoom In 4K HDR",
-            narration: `99% of people completely misunderstand ${cleanSubject.toLowerCase()}. But once you see the reality, you can never unsee it.`,
-            captionText: `THE SHOCKING REALITY ABOUT THIS ⏳🔥`,
-            imagePrompt: `hyperrealistic 8k cinematic visual shot of ${cleanSubject}, dramatic lighting, octane render`,
-            bgColor: "from-purple-950 via-slate-900 to-rose-950",
-          },
-          {
-            id: 2,
-            timestamp: "00:09 - 00:18",
-            visualDescription: `Dynamic 3D conceptual breakdown illustrating why "${promptToUse}" changes the way experts operate`,
-            cameraMovement: "360 Degree Orbit Pan",
-            narration: `Here is the exact mechanism: when you break down ${cleanSubject.toLowerCase()}, everything connects to one hidden principle.`,
-            captionText: `THE EXACT HIDDEN MECHANISM 🧠⚡`,
-            imagePrompt: `cybernetic 3D diagram explaining ${cleanSubject}, glowing electrical network`,
-            bgColor: "from-blue-950 via-indigo-950 to-slate-900",
-          },
-          {
-            id: 3,
-            timestamp: "00:18 - 00:27",
-            visualDescription: `Cinematic moody scene depicting real-world mastery of "${cleanSubject}", with golden hour ray lighting and sharp depth of field`,
-            cameraMovement: "Slow Tilt Up with Volumetric Light",
-            narration: `The secret is simple: stop hesitating and apply the 5-second action rule before self-doubt takes control.`,
-            captionText: `THE 5-SECOND ACTION RULE 🚀💡`,
-            imagePrompt: `cinematic photography of ambitious person executing ${cleanSubject}`,
-            bgColor: "from-rose-950 via-zinc-900 to-amber-950",
-          },
-          {
-            id: 4,
-            timestamp: "00:27 - 00:36",
-            visualDescription: `Speed ramp of converging light trails erupting into a supernova finale with subscribe badge`,
-            cameraMovement: "Speed Ramp Supernova Blur",
-            narration: `Drop a comment with your opinion on this, save this video for later, and follow for more daily wisdom.`,
-            captionText: `COMMENT YOUR OPINION & SUBSCRIBE! 🚀`,
-            imagePrompt: `cyberpunk light trails and supernova convergence motion blur`,
-            bgColor: "from-red-950 via-neutral-900 to-purple-950",
-          },
-        ],
-      };
-    }
-
-    setProject(generatedResult);
     setIsGenerating(false);
     setGenerationStep("");
   };
