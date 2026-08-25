@@ -141,6 +141,8 @@ export const api = {
       request<any>(`/api/v1/videos/${videoId}/process`, { method: "POST", body: JSON.stringify({}) }),
     stopProcess: (videoId: string) =>
       request<any>(`/api/v1/videos/${videoId}/stop`, { method: "POST" }),
+    getProgress: (videoId: string) =>
+      request<{ percent: number; step: string; done: boolean }>(`/api/v1/videos/${videoId}/progress`),
     downloadWithProgress: (
       url: string,
       fileName: string,

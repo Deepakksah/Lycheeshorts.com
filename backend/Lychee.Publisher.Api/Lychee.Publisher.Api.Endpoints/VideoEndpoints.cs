@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using Lychee.Publisher.Application.Abstractions;
+using Lychee.Publisher.Infrastructure.Jobs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -125,6 +126,15 @@ public static class VideoEndpoints
 				return Results.Problem(ex.Message, statusCode: 500);
 			}
 		}).WithName("GetVideoShorts");
+		// ── Real-time progress endpoint (no DB hit, reads from in-memory tracker) ──
+		endpoints.MapGet("/{videoId:guid}/progress", (Guid videoId, ClaimsPrincipal user) =>
+		{
+			Guid userId = GetUserId(user);
+			if (userId == Guid.Empty) return Results.Unauthorized();
+			var p = VideoProgressTracker.Get(videoId);
+			if (p == null) return Results.Ok(new { percent = 0, step = "Queued", done = false });
+			return Results.Ok(new { percent = p.Percent, step = p.Step, done = p.Percent >= 100 });
+		}).WithName("GetVideoProgress");
 		endpoints.MapPost("/{videoId:guid}/process", (Func<Guid, TriggerProcessingRequest, ClaimsPrincipal, IVideoService, CancellationToken, Task<IResult>>)async delegate(Guid videoId, TriggerProcessingRequest? requestBody, ClaimsPrincipal user, IVideoService videoService, CancellationToken cancellationToken)
 		{
 			try

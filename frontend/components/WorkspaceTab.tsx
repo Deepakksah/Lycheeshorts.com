@@ -116,6 +116,30 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({
     completed?: boolean;
   } | null>(null);
 
+  // Real-time download progress map: videoId -> { percent, step }
+  const [videoProgress, setVideoProgress] = useState<Record<string, { percent: number; step: string }>>({});
+
+  useEffect(() => {
+    const processingIds = videos.filter(v => v.status === "Processing" || v.status === "Queued").map(v => v.id);
+    if (processingIds.length === 0) return;
+    let alive = true;
+    const poll = async () => {
+      if (!alive) return;
+      const results = await Promise.allSettled(processingIds.map(id => api.videos.getProgress(id)));
+      if (!alive) return;
+      setVideoProgress(prev => {
+        const next = { ...prev };
+        results.forEach((r, i) => {
+          if (r.status === "fulfilled") next[processingIds[i]] = { percent: r.value.percent, step: r.value.step };
+        });
+        return next;
+      });
+    };
+    poll();
+    const interval = setInterval(poll, 2000);
+    return () => { alive = false; clearInterval(interval); };
+  }, [videos]);
+
   const handleDownloadShort = async (clipId: string, title?: string) => {
     const fileName = `${title ? title.replace(/[^a-zA-Z0-9_-]/g, "_") : "lychee_short"}.mp4`;
     setTransferProgress({
@@ -472,6 +496,26 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1 truncate">{v.sourceUrl}</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">{new Date(v.createdAtUtc).toLocaleDateString()}</p>
+                  {/* Real-time progress bar for Processing/Queued videos */}
+                  {(v.status === "Processing" || v.status === "Queued") && (() => {
+                    const prog = videoProgress[v.id];
+                    const pct = prog?.percent ?? 0;
+                    const step = prog?.step ?? "Waiting in queue...";
+                    return (
+                      <div className="mt-2">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[9px] text-blue-600 font-medium truncate">{step}</span>
+                          <span className="text-[9px] text-blue-700 font-bold ml-1">{pct}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-blue-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-blue-500 to-violet-500 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.max(3, pct)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

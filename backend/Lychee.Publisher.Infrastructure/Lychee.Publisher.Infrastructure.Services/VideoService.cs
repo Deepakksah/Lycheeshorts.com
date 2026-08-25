@@ -55,9 +55,9 @@ public sealed class VideoService(PublisherDbContext dbContext) : IVideoService
 		{
 			UserId = userId,
 			SourceType = "YouTube",
-			SourceUrl = request.SourceUrl,
+			SourceUrl = request.GetEffectiveUrl(),
 			OriginalFileUri = string.Empty,
-			Title = (request.Title ?? "YouTube Imported Video"),
+			Title = (!string.IsNullOrWhiteSpace(request.Title) ? request.Title : "YouTube Imported Video"),
 			Status = ProcessingStatus.Queued
 		};
 		dbContext.Videos.Add(video);

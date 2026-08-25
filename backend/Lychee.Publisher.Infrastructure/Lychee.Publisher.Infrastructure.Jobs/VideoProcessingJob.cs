@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Hangfire;
@@ -28,6 +29,7 @@ public sealed class VideoProcessingJob(PublisherDbContext dbContext, IVideoProce
 		}
 		video.Status = ProcessingStatus.Processing;
 		await dbContext.SaveChangesAsync(cancellationToken);
+		VideoProgressTracker.Update(video.Id, 0, "Starting...");
 		try
 		{
 			if ((video.SourceType == "YouTube" || video.SourceType == "URL") && string.IsNullOrWhiteSpace(video.OriginalFileUri))
@@ -37,27 +39,139 @@ public sealed class VideoProcessingJob(PublisherDbContext dbContext, IVideoProce
 					throw new InvalidOperationException("Video source URL is empty.");
 				}
 				bool downloaded = false;
+
+				// 1. Try genuine yt-dlp engine for 100% authentic YouTube / TikTok / Reels download
 				try
 				{
-					YoutubeClient youtube = new YoutubeClient();
-					YoutubeExplode.Videos.Video ytVideo = await youtube.Videos.GetAsync(video.SourceUrl, cancellationToken);
-					StreamManifest manifest = await youtube.Videos.Streams.GetManifestAsync(ytVideo.Id, cancellationToken);
-					IVideoStreamInfo streamInfo = manifest.GetMuxedStreams().GetWithHighestVideoQuality();
-					if (streamInfo != null)
+					string tempDir = Path.Combine(Path.GetTempPath(), "lychee_downloads");
+					Directory.CreateDirectory(tempDir);
+					string uniqueId = Guid.NewGuid().ToString("N");
+					// Use a template so yt-dlp can pick the right extension after merging
+					string tempTemplate = Path.Combine(tempDir, $"{uniqueId}.%(ext)s");
+					string tempFile = Path.Combine(tempDir, $"{uniqueId}.mp4");
+
+					// Prefer standalone yt-dlp.exe if present alongside the API binary
+					string ytDlpExe = Path.Combine(AppContext.BaseDirectory, "yt-dlp.exe");
+					string ytDlpFileName = File.Exists(ytDlpExe) ? ytDlpExe : "yt-dlp";
+
+					var psi = new System.Diagnostics.ProcessStartInfo
 					{
-						using Stream stream = await youtube.Videos.Streams.GetAsync(streamInfo, cancellationToken);
-						video.OriginalFileUri = (await fileStorageService.SaveVideoAsync(video.UserId, (ytVideo.Title ?? "youtube_video") + ".mp4", "video/mp4", streamInfo.Size.Bytes, stream, cancellationToken)).Uri;
-						if (string.IsNullOrWhiteSpace(video.Title) || video.Title == "YouTube Imported Video")
+						FileName = ytDlpFileName,
+						Arguments = $"-f \"bv*[height<=720]+ba/b\" --merge-output-format mp4 --no-playlist --newline -o \"{tempTemplate}\" \"{video.SourceUrl}\"",
+						RedirectStandardOutput = true,
+						RedirectStandardError = true,
+						UseShellExecute = false,
+						CreateNoWindow = true
+					};
+
+					VideoProgressTracker.Update(video.Id, 2, "Downloading video...");
+					using var proc = System.Diagnostics.Process.Start(psi);
+					if (proc != null)
+					{
+						// Parse yt-dlp progress lines in real-time from stdout
+						// yt-dlp outputs: [download]  45.3% of 43.94MiB at 2.50MiB/s ETA 00:14
+						var progressRegex = new Regex(@"\[download\]\s+(\d+\.?\d*)%", RegexOptions.Compiled);
+						var stdoutTask = Task.Run(async () =>
 						{
-							video.Title = ytVideo.Title;
+							string? line;
+							while ((line = await proc.StandardOutput.ReadLineAsync()) != null)
+							{
+								var m = progressRegex.Match(line);
+								if (m.Success && double.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double pct))
+								{
+									// Map 0-100% download to 2-70% overall progress
+									int overall = 2 + (int)(pct * 0.68);
+									VideoProgressTracker.Update(video.Id, overall, $"Downloading... {pct:F1}%");
+								}
+							}
+						});
+						var stderrTask = proc.StandardError.ReadToEndAsync(); // drain stderr
+						using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+						cts.CancelAfter(TimeSpan.FromMinutes(10));
+						await proc.WaitForExitAsync(cts.Token);
+						await stdoutTask;
+						string stderr = await stderrTask;
+						FileLogger.LogBackendError("YTDLP_OUT", $"ExitCode={proc.ExitCode} STDERR={stderr.Trim()}");
+
+						if (File.Exists(tempFile) && new FileInfo(tempFile).Length > 10000)
+						{
+							using var fileStream = File.OpenRead(tempFile);
+							video.OriginalFileUri = (await fileStorageService.SaveVideoAsync(video.UserId, "imported_video.mp4", "video/mp4", fileStream.Length, fileStream, cancellationToken)).Uri;
+							downloaded = true;
 						}
-						video.Duration = ytVideo.Duration;
+					}
+					if (File.Exists(tempFile))
+					{
+						try { File.Delete(tempFile); } catch { }
+					}
+
+					if (downloaded)
+					{
+						try
+						{
+							var titlePsi = new System.Diagnostics.ProcessStartInfo
+							{
+								FileName = ytDlpFileName,
+								Arguments = $"--print title --print duration --no-playlist \"{video.SourceUrl}\"",
+								RedirectStandardOutput = true,
+								RedirectStandardError = true,
+								UseShellExecute = false,
+								CreateNoWindow = true
+							};
+							using var titleProc = System.Diagnostics.Process.Start(titlePsi);
+							if (titleProc != null)
+							{
+								var titleOut = titleProc.StandardOutput.ReadToEndAsync();
+								var titleErr = titleProc.StandardError.ReadToEndAsync();
+								await titleProc.WaitForExitAsync(cancellationToken);
+								string output = await titleOut;
+								await titleErr; // drain stderr
+								var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+								if (lines.Length > 0 && !string.IsNullOrWhiteSpace(lines[0]))
+								{
+									video.Title = lines[0].Trim();
+								}
+								if (lines.Length > 1 && double.TryParse(lines[1], out double durationSecs) && durationSecs > 0)
+								{
+									video.Duration = TimeSpan.FromSeconds(durationSecs);
+								}
+							}
+						}
+						catch { }
+						VideoProgressTracker.Update(video.Id, 72, "Saving video...");
 						await dbContext.SaveChangesAsync(cancellationToken);
-						downloaded = true;
 					}
 				}
-				catch
+				catch (Exception ex)
 				{
+					FileLogger.LogBackendError("YTDLP_DOWNLOAD", ex.Message, ex);
+				}
+
+				// 2. Secondary fallback via YoutubeExplode
+				if (!downloaded)
+				{
+					try
+					{
+						YoutubeClient youtube = new YoutubeClient();
+						YoutubeExplode.Videos.Video ytVideo = await youtube.Videos.GetAsync(video.SourceUrl, cancellationToken);
+						StreamManifest manifest = await youtube.Videos.Streams.GetManifestAsync(ytVideo.Id, cancellationToken);
+						IVideoStreamInfo streamInfo = manifest.GetMuxedStreams().GetWithHighestVideoQuality();
+						if (streamInfo != null)
+						{
+							using Stream stream = await youtube.Videos.Streams.GetAsync(streamInfo, cancellationToken);
+							video.OriginalFileUri = (await fileStorageService.SaveVideoAsync(video.UserId, (ytVideo.Title ?? "youtube_video") + ".mp4", "video/mp4", streamInfo.Size.Bytes, stream, cancellationToken)).Uri;
+							if (string.IsNullOrWhiteSpace(video.Title) || video.Title == "YouTube Imported Video")
+							{
+								video.Title = ytVideo.Title;
+							}
+							video.Duration = ytVideo.Duration;
+							await dbContext.SaveChangesAsync(cancellationToken);
+							downloaded = true;
+						}
+					}
+					catch
+					{
+					}
 				}
 
 				if (!downloaded && Uri.TryCreate(video.SourceUrl, UriKind.Absolute, out Uri? uriResult))
@@ -139,6 +253,7 @@ public sealed class VideoProcessingJob(PublisherDbContext dbContext, IVideoProce
 					FileLogger.LogBackendError("VIDEO_THUMBNAIL", $"Thumbnail generation skipped: {ex.Message}");
 				}
 			}
+			VideoProgressTracker.Update(video.Id, 75, "Generating AI shorts...");
 			VideoProcessingRequest request = new VideoProcessingRequest(video.Id, video.OriginalFileUri, BurnSubtitles: true, AddWatermark: false, requestOptions.AutoCropFace, requestOptions.Crf, requestOptions.Codec, requestOptions.Format);
 			foreach (GeneratedShortClip clip in await videoProcessingService.GenerateShortsAsync(request, cancellationToken))
 			{
@@ -186,6 +301,7 @@ public sealed class VideoProcessingJob(PublisherDbContext dbContext, IVideoProce
 				dbContext.Shorts.Add(shortClip);
 			}
 			video.Status = ProcessingStatus.Processed;
+			VideoProgressTracker.Update(video.Id, 100, "Done!");
 			await dbContext.SaveChangesAsync(cancellationToken);
 		}
 		catch (Exception ex)
