@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { PlaySquare, CalendarClock, Layers, CreditCard, Shield, LogOut, Menu, Settings } from "lucide-react";
+import { PlaySquare, CalendarClock, Layers, CreditCard, Shield, LogOut, Menu, Settings, Wand2 } from "lucide-react";
 
 interface SidebarProps {
-  activeTab: "workspace" | "scheduler" | "social" | "billing" | "admin" | "settings";
-  setActiveTab: (tab: "workspace" | "scheduler" | "social" | "billing" | "admin" | "settings") => void;
+  activeTab: "workspace" | "scheduler" | "social" | "billing" | "admin" | "settings" | "gemini";
+  setActiveTab: (tab: "workspace" | "scheduler" | "social" | "billing" | "admin" | "settings" | "gemini") => void;
   currentUser: any;
   handleLogout: () => void;
 }
@@ -15,6 +15,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, curre
 
   const navItems = [
     { id: "workspace", label: "Workspace & Library", icon: PlaySquare },
+    { id: "gemini",    label: "Gemini Video Studio", icon: Wand2 },
     { id: "scheduler", label: "Scheduler Calendar", icon: CalendarClock },
     { id: "social",    label: "Social Channels",    icon: Layers },
     { id: "billing",   label: "Billing & Plans",    icon: CreditCard },

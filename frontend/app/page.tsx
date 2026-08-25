@@ -15,6 +15,7 @@ import { SocialTab } from "../components/SocialTab";
 import { AdminTab } from "../components/AdminTab";
 import { BillingTab } from "../components/BillingTab";
 import { SettingsTab } from "../components/SettingsTab";
+import { GeminiStudioTab } from "../components/GeminiStudioTab";
 import { AuthModal } from "../components/AuthModal";
 import { ThemeColor, DockPosition } from "../components/FloatingThemeWidget";
 
@@ -50,7 +51,7 @@ export default function DashboardPage() {
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [rescheduleDateTime, setRescheduleDateTime] = useState("");
 
-  const [activeTab, setActiveTab] = useState<"workspace" | "scheduler" | "billing" | "social" | "admin" | "settings">("workspace");
+  const [activeTab, setActiveTab] = useState<"workspace" | "gemini" | "scheduler" | "billing" | "social" | "admin" | "settings">("workspace");
   const [socialAccounts, setSocialAccounts] = useState<any[]>([]);
   const [isConnectingPlatform, setIsConnectingPlatform] = useState<number | null>(null);
   const [socialDisplayName, setSocialDisplayName] = useState("");
@@ -148,7 +149,7 @@ export default function DashboardPage() {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       const tabParam = urlParams.get("tab");
-      if (tabParam && ["workspace","scheduler","billing","social","admin","settings"].includes(tabParam)) {
+      if (tabParam && ["workspace","gemini","scheduler","billing","social","admin","settings"].includes(tabParam)) {
         setActiveTab(tabParam as any);
       }
     }
@@ -415,6 +416,15 @@ export default function DashboardPage() {
               selectedSocialAccountId={selectedSocialAccountId} setSelectedSocialAccountId={setSelectedSocialAccountId}
               socialAccounts={socialAccounts} handleCreateSchedule={handleCreateSchedule}
               handleDeleteSchedule={handleDeleteSchedule} loading={loading} actionError={actionError}
+            />
+          ) : activeTab === "gemini" ? (
+            <GeminiStudioTab
+              currentUser={currentUser}
+              onVideoCreated={(newVid) => {
+                setVideos(p => [newVid, ...p]);
+                setSelectedVideo(newVid);
+              }}
+              onNavigateToTab={(tab: string) => setActiveTab(tab as any)}
             />
           ) : activeTab === "scheduler" ? (
             <SchedulerTab

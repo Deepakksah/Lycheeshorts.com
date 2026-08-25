@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { PlaySquare, CalendarClock, Layers, CreditCard, Shield, LayoutDashboard, Settings } from "lucide-react";
+import { PlaySquare, CalendarClock, Layers, CreditCard, Shield, LayoutDashboard, Settings, Wand2 } from "lucide-react";
 
 interface HeaderProps {
-  activeTab: "workspace" | "scheduler" | "social" | "billing" | "admin" | "settings";
-  setActiveTab: (tab: "workspace" | "scheduler" | "social" | "billing" | "admin" | "settings") => void;
+  activeTab: "workspace" | "scheduler" | "social" | "billing" | "admin" | "settings" | "gemini";
+  setActiveTab: (tab: "workspace" | "scheduler" | "social" | "billing" | "admin" | "settings" | "gemini") => void;
   currentUser: any;
   handleLogout: () => void;
   onOpenSettings?: () => void;
@@ -13,6 +13,7 @@ interface HeaderProps {
 
 const tabLabels: Record<string, string> = {
   workspace: "Workspace & Library",
+  gemini:    "Gemini AI Video Studio",
   scheduler: "Scheduler Calendar",
   social:    "Social Channels",
   billing:   "Billing & Plans",
@@ -22,6 +23,7 @@ const tabLabels: Record<string, string> = {
 
 const tabIcons: Record<string, React.FC<{ size?: number; className?: string }>> = {
   workspace: PlaySquare,
+  gemini:    Wand2,
   scheduler: CalendarClock,
   social:    Layers,
   billing:   CreditCard,
@@ -48,7 +50,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, current
       <div className="flex items-center gap-3">
         {/* Mobile navigation buttons */}
         <div className="flex md:hidden gap-1">
-          {(["workspace","scheduler","social","billing","settings"] as const).map(tab => {
+          {(["workspace","gemini","scheduler","social","billing","settings"] as const).map(tab => {
             const TabIcon = tabIcons[tab];
             return (
               <button
