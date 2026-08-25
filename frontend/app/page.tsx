@@ -24,8 +24,8 @@ export default function DashboardPage() {
   const [dockPosition, setDockPosition] = useState<DockPosition>("right");
   const [selectedColor, setSelectedColor] = useState<ThemeColor>("rose");
   const [authMode, setAuthMode] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
-  const [authEmail, setAuthEmail] = useState("admin@lychee.com");
-  const [authPassword, setAuthPassword] = useState("123456");
+  const [authEmail, setAuthEmail] = useState("kumardpksah@gmail.com");
+  const [authPassword, setAuthPassword] = useState("NewDelhi#321");
   const [authDisplayName, setAuthDisplayName] = useState("");
   const [verificationToken, setVerificationToken] = useState("");
   const [resetToken, setResetToken] = useState("");

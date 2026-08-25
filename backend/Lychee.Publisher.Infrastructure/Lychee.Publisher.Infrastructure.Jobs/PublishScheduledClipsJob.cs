@@ -19,9 +19,15 @@ public sealed class PublishScheduledClipsJob(PublisherDbContext dbContext, ISoci
 	public async Task PublishPendingClipsAsync(CancellationToken cancellationToken)
 	{
 		DateTimeOffset now = DateTimeOffset.UtcNow;
-		List<PublishingSchedule> pendingSchedules = await (from s in dbContext.Schedules.Include((PublishingSchedule s) => s.ShortClip).Include((PublishingSchedule s) => s.SocialAccount)
-			where s.Status == ProcessingStatus.Scheduled && s.PublishAtUtc <= now
-			select s).ToListAsync(cancellationToken);
+		List<PublishingSchedule> scheduledItems = await dbContext.Schedules
+			.Include((PublishingSchedule s) => s.ShortClip)
+			.Include((PublishingSchedule s) => s.SocialAccount)
+			.Where((PublishingSchedule s) => s.Status == ProcessingStatus.Scheduled)
+			.ToListAsync(cancellationToken);
+
+		List<PublishingSchedule> pendingSchedules = scheduledItems
+			.Where((PublishingSchedule s) => s.PublishAtUtc <= now)
+			.ToList();
 		if (pendingSchedules.Count == 0)
 		{
 			return;

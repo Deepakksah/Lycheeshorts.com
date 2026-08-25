@@ -160,6 +160,7 @@ app.MapScheduleEndpoints();
 app.MapPaymentEndpoints();
 app.MapSocialAccountEndpoints();
 app.MapAdminEndpoints();
+app.MapGeminiEndpoints();
 
 try
 {

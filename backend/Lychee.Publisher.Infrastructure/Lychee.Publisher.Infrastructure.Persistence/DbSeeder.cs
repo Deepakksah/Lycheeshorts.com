@@ -113,8 +113,10 @@ public static class DbSeeder
 
 	private static async Task SeedAdminUserAsync(PublisherDbContext db, IPasswordHasher<User>? passwordHasher)
 	{
-		User existingAdmin = await db.Users.FirstOrDefaultAsync((User u) => u.Email.ToLower() == "admin@lychee.com");
 		IPasswordHasher<User> hasher = passwordHasher ?? new PasswordHasher<User>(Options.Create(new PasswordHasherOptions()));
+
+		// 1. Seed admin@lychee.com
+		User existingAdmin = await db.Users.FirstOrDefaultAsync((User u) => u.Email.ToLower() == "admin@lychee.com");
 		if (existingAdmin == null)
 		{
 			User adminUser = new User
@@ -137,6 +139,33 @@ public static class DbSeeder
 			existingAdmin.SubscriptionTier = SubscriptionTier.Enterprise;
 			existingAdmin.IsEmailVerified = true;
 			existingAdmin.PasswordHash = hasher.HashPassword(existingAdmin, "123456");
+		}
+
+		// 2. Seed kumardpksah@gmail.com with password NewDelhi#321
+		User userDeepak = await db.Users.FirstOrDefaultAsync((User u) => u.Email.ToLower() == "kumardpksah@gmail.com");
+		if (userDeepak == null)
+		{
+			User deepakUser = new User
+			{
+				Id = Guid.NewGuid(),
+				Email = "kumardpksah@gmail.com",
+				PasswordHash = string.Empty,
+				DisplayName = "Deepak Sah",
+				Role = "Admin",
+				SubscriptionTier = SubscriptionTier.Enterprise,
+				IsEmailVerified = true,
+				CreatedAtUtc = DateTimeOffset.UtcNow
+			};
+			deepakUser.PasswordHash = hasher.HashPassword(deepakUser, "NewDelhi#321");
+			db.Users.Add(deepakUser);
+		}
+		else
+		{
+			userDeepak.Role = "Admin";
+			userDeepak.SubscriptionTier = SubscriptionTier.Enterprise;
+			userDeepak.DisplayName = "Deepak Sah";
+			userDeepak.IsEmailVerified = true;
+			userDeepak.PasswordHash = hasher.HashPassword(userDeepak, "NewDelhi#321");
 		}
 	}
 }

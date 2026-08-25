@@ -275,4 +275,9 @@ export const api = {
         `/api/v1/admin/audit-logs?page=${page}&pageSize=${pageSize}${action ? `&action=${encodeURIComponent(action)}` : ""}`),
     getAnalytics: () => request<AdminAnalyticsResponse>("/api/v1/admin/analytics"),
   },
+  gemini: {
+    getModels: () => request<any[]>("/api/v1/gemini/models"),
+    publish: (body: { title: string; durationSeconds: number; viralityScore: number; hook?: string; description?: string; hashtags?: string[]; model: string }) =>
+      request<any>("/api/v1/gemini/publish", { method: "POST", body: JSON.stringify(body) }),
+  },
 };
