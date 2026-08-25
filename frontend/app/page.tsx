@@ -16,6 +16,7 @@ import { AdminTab } from "../components/AdminTab";
 import { BillingTab } from "../components/BillingTab";
 import { AuthModal } from "../components/AuthModal";
 import { SettingsModal } from "../components/SettingsModal";
+import { FloatingThemeWidget } from "../components/FloatingThemeWidget";
 import { Settings } from "lucide-react";
 
 export default function DashboardPage() {
@@ -441,6 +442,13 @@ export default function DashboardPage() {
             <Settings size={17} className="text-rose-400 group-hover:rotate-45 transition-transform duration-300" />
             <span className="text-xs font-black tracking-wide hidden sm:inline text-rose-100">AI & Settings</span>
           </button>
+
+          {/* Floating Theme & Layout Customizer (Left / Right Dockable & Color Palettes) */}
+          <FloatingThemeWidget
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
 
           {/* Settings Modal */}
           <SettingsModal
