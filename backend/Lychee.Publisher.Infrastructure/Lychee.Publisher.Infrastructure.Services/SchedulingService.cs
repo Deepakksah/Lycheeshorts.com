@@ -30,7 +30,7 @@ public sealed class SchedulingService(PublisherDbContext dbContext) : ISchedulin
 		{
 			throw new InvalidOperationException("Invalid short clip selected or access denied.");
 		}
-		if (await dbContext.SocialAccounts.SingleOrDefaultAsync((SocialAccount sa) => sa.Id == request.SocialAccountId && sa.UserId == userId, cancellationToken) == null && await dbContext.SocialAccounts.FirstOrDefaultAsync((SocialAccount sa) => sa.UserId == userId && (int)sa.Platform == (int)request.Platform, cancellationToken) == null)
+		if (await dbContext.SocialAccounts.SingleOrDefaultAsync((SocialAccount sa) => sa.Id == request.SocialAccountId && sa.UserId == userId, cancellationToken) == null && await dbContext.SocialAccounts.FirstOrDefaultAsync((SocialAccount sa) => sa.UserId == userId && sa.Platform == request.Platform, cancellationToken) == null)
 		{
 			SocialAccount socialAccount = new SocialAccount
 			{

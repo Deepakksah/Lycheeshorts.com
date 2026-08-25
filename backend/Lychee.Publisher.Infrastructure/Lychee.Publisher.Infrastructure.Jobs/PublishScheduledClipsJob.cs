@@ -20,7 +20,7 @@ public sealed class PublishScheduledClipsJob(PublisherDbContext dbContext, ISoci
 	{
 		DateTimeOffset now = DateTimeOffset.UtcNow;
 		List<PublishingSchedule> pendingSchedules = await (from s in dbContext.Schedules.Include((PublishingSchedule s) => s.ShortClip).Include((PublishingSchedule s) => s.SocialAccount)
-			where (int)s.Status == 6 && s.PublishAtUtc <= now
+			where s.Status == ProcessingStatus.Scheduled && s.PublishAtUtc <= now
 			select s).ToListAsync(cancellationToken);
 		if (pendingSchedules.Count == 0)
 		{

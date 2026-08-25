@@ -1,13 +1,14 @@
 "use client";
 
 import React from "react";
-import { PlaySquare, CalendarClock, Layers, CreditCard, Shield, LayoutDashboard } from "lucide-react";
+import { PlaySquare, CalendarClock, Layers, CreditCard, Shield, LayoutDashboard, Settings } from "lucide-react";
 
 interface HeaderProps {
   activeTab: "workspace" | "scheduler" | "social" | "billing" | "admin";
   setActiveTab: (tab: "workspace" | "scheduler" | "social" | "billing" | "admin") => void;
   currentUser: any;
   handleLogout: () => void;
+  onOpenSettings?: () => void;
 }
 
 const tabLabels: Record<string, string> = {
@@ -26,7 +27,7 @@ const tabIcons: Record<string, React.FC<{ size?: number; className?: string }>> 
   admin:     Shield,
 };
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, currentUser }) => {
+export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, currentUser, onOpenSettings }) => {
   const Icon = tabIcons[activeTab] || LayoutDashboard;
   const label = tabLabels[activeTab] || "";
 
@@ -58,6 +59,18 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, current
             );
           })}
         </div>
+
+        {/* Settings button in header */}
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            title="Settings & Configurations"
+            className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold"
+          >
+            <Settings size={15} />
+            <span className="hidden md:inline">Settings</span>
+          </button>
+        )}
 
         {/* User profile avatar badge in Header */}
         {currentUser && (

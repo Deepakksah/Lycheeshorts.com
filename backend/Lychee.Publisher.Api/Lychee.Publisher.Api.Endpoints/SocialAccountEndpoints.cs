@@ -39,7 +39,7 @@ public static class SocialAccountEndpoints
 				return Results.BadRequest("Invalid platform type.");
 			}
 			PlatformType platform = (PlatformType)request.Platform;
-			if (await dbContext.SocialAccounts.FirstOrDefaultAsync((SocialAccount sa) => sa.UserId == userId && (int)sa.Platform == (int)platform && sa.DisplayName == request.DisplayName, cancellationToken) != null)
+			if (await dbContext.SocialAccounts.FirstOrDefaultAsync((SocialAccount sa) => sa.UserId == userId && sa.Platform == platform && sa.DisplayName == request.DisplayName, cancellationToken) != null)
 			{
 				return Results.BadRequest("Channel '" + request.DisplayName + "' is already connected on this platform.");
 			}

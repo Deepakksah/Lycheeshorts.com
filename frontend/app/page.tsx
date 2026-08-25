@@ -15,9 +15,12 @@ import { SocialTab } from "../components/SocialTab";
 import { AdminTab } from "../components/AdminTab";
 import { BillingTab } from "../components/BillingTab";
 import { AuthModal } from "../components/AuthModal";
+import { SettingsModal } from "../components/SettingsModal";
+import { Settings } from "lucide-react";
 
 export default function DashboardPage() {
   const [token, setToken] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
   const [authEmail, setAuthEmail] = useState("admin@Lychee.com");
   const [authPassword, setAuthPassword] = useState("123456");
@@ -358,8 +361,14 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans antialiased">
       <div className="flex flex-1 min-h-screen">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} handleLogout={handleLogout} />
-        <section className="flex-1 flex flex-col min-w-0 bg-slate-50">
-          <Header activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} handleLogout={handleLogout} />
+        <section className="flex-1 flex flex-col min-w-0 bg-slate-50 relative">
+          <Header
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            currentUser={currentUser}
+            handleLogout={handleLogout}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+          />
           {activeTab === "workspace" ? (
             <WorkspaceTab
               videos={videos} selectedVideo={selectedVideo} setSelectedVideo={setSelectedVideo}
@@ -421,6 +430,24 @@ export default function DashboardPage() {
               handleCheckout={handleCheckout} loading={loading}
             />
           )}
+
+          {/* Floating Settings Button */}
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            title="Platform & AI Settings"
+            className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-zinc-950/90 hover:bg-zinc-900 text-white rounded-2xl border border-rose-500/40 shadow-2xl backdrop-blur-md hover:scale-105 active:scale-95 transition-all group hover:border-rose-500 cursor-pointer"
+          >
+            <div className="h-2 w-2 rounded-full bg-rose-500 animate-ping" />
+            <Settings size={17} className="text-rose-400 group-hover:rotate-45 transition-transform duration-300" />
+            <span className="text-xs font-black tracking-wide hidden sm:inline text-rose-100">AI & Settings</span>
+          </button>
+
+          {/* Settings Modal */}
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            currentUser={currentUser}
+          />
         </section>
       </div>
     </main>
