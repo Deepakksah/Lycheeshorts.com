@@ -16,16 +16,12 @@ import { AdminTab } from "../components/AdminTab";
 import { BillingTab } from "../components/BillingTab";
 import { SettingsTab } from "../components/SettingsTab";
 import { AuthModal } from "../components/AuthModal";
-import { SettingsModal } from "../components/SettingsModal";
-import { FloatingThemeWidget, DockPosition, ThemeColor } from "../components/FloatingThemeWidget";
-import { Settings } from "lucide-react";
+import { ThemeColor, DockPosition } from "../components/FloatingThemeWidget";
 
 export default function DashboardPage() {
   const [token, setToken] = useState<string | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [dockPosition, setDockPosition] = useState<DockPosition>("right");
   const [selectedColor, setSelectedColor] = useState<ThemeColor>("rose");
-  const [showFloatingWidget, setShowFloatingWidget] = useState(true);
   const [authMode, setAuthMode] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
   const [authEmail, setAuthEmail] = useState("admin@lychee.com");
   const [authPassword, setAuthPassword] = useState("123456");
@@ -158,8 +154,6 @@ export default function DashboardPage() {
     }
     const savedToken = localStorage.getItem("token");
     if (savedToken) { setToken(savedToken); fetchUserData(); }
-    const savedFloating = localStorage.getItem("lychee_show_floating");
-    if (savedFloating !== null) setShowFloatingWidget(savedFloating === "true");
   }, [fetchUserData]);
 
   const loadBillingData = useCallback(async () => {
@@ -400,7 +394,7 @@ export default function DashboardPage() {
             setActiveTab={setActiveTab}
             currentUser={currentUser}
             handleLogout={handleLogout}
-            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenSettings={() => setActiveTab("settings")}
           />
           {activeTab === "workspace" ? (
             <WorkspaceTab
@@ -470,31 +464,8 @@ export default function DashboardPage() {
               setDockPosition={setDockPosition}
               selectedColor={selectedColor}
               setSelectedColor={setSelectedColor}
-              showFloatingWidget={showFloatingWidget}
-              setShowFloatingWidget={setShowFloatingWidget}
             />
           )}
-
-          {/* Floating Theme & AI Customizer (Left / Right Dockable & Color Palettes) */}
-          {showFloatingWidget && (
-            <FloatingThemeWidget
-              onOpenSettings={() => setActiveTab("settings")}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-            />
-          )}
-
-          {/* Settings Modal (Can also be triggered via Quick Modal if needed) */}
-          <SettingsModal
-            isOpen={isSettingsOpen}
-            onClose={() => setIsSettingsOpen(false)}
-            currentUser={currentUser}
-            dockPosition={dockPosition}
-            setDockPosition={setDockPosition}
-            selectedColor={selectedColor}
-            setSelectedColor={setSelectedColor}
-            usage={usage}
-          />
         </section>
       </div>
     </main>
