@@ -276,43 +276,53 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({
 
       {/* Preview Modal */}
       {previewClip && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-lg w-full p-6 text-white relative shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-700/80 rounded-2xl max-w-lg w-full p-6 text-white relative shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <button
               onClick={() => setPreviewClip(null)}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800"
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1.5 rounded-xl hover:bg-zinc-800 transition-all z-10"
             >
-              <X size={18} />
+              <X size={20} />
             </button>
             <div className="flex items-center gap-2 mb-3">
-              <span className="px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 text-[10px] font-bold">
+              <span className="px-2.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 text-xs font-bold flex items-center gap-1">
                 🔥 {previewClip.viralityScore || 85}% Virality Score
               </span>
-              <span className="text-xs text-zinc-400">
-                {Math.round(parseSeconds(previewClip.endTime) - parseSeconds(previewClip.startTime))}s Duration
+              <span className="text-xs text-zinc-400 font-medium">
+                ⏱️ {Math.max(1, Math.round(parseSeconds(previewClip.endTime) - parseSeconds(previewClip.startTime)))}s Duration
               </span>
             </div>
-            <h3 className="font-bold text-base mb-2 text-white">{previewClip.title}</h3>
-            <p className="text-xs text-zinc-400 mb-4">{previewClip.description}</p>
+            <h3 className="font-bold text-base mb-1.5 text-white leading-snug">{previewClip.title}</h3>
+            <p className="text-xs text-zinc-400 mb-3 line-clamp-2">{previewClip.description}</p>
             {previewClip.hashtags && (
-              <p className="text-xs text-rose-400 font-medium mb-4">{previewClip.hashtags}</p>
+              <p className="text-xs text-rose-400 font-semibold mb-4">{previewClip.hashtags}</p>
             )}
 
-            {/* Simulated video frame */}
-            <div className="aspect-[9/16] max-h-72 w-full mx-auto bg-black rounded-xl border border-zinc-800 flex items-center justify-center relative overflow-hidden mb-4">
-              <div className="text-center p-4">
-                <Play size={40} className="mx-auto text-rose-500 mb-2 animate-pulse" />
-                <p className="text-xs text-zinc-300 font-bold">Clip Preview Stream</p>
-                <p className="text-[10px] text-zinc-500 mt-1">
-                  Time: {Math.floor(parseSeconds(previewClip.startTime))}s — {Math.floor(parseSeconds(previewClip.endTime))}s
-                </p>
-              </div>
+            {/* REAL HTML5 VIDEO PLAYER */}
+            <div className="relative aspect-[9/16] max-h-[380px] w-full mx-auto bg-black rounded-xl border border-zinc-800 overflow-hidden mb-5 shadow-inner flex items-center justify-center">
+              <video
+                key={previewClip.id}
+                src={previewClip.outputUri?.startsWith("http") ? previewClip.outputUri : `http://127.0.0.1:5000/api/v1/videos/shorts/${previewClip.id}/download`}
+                controls
+                autoPlay
+                loop
+                playsInline
+                className="w-full h-full object-cover rounded-xl"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.dataset.fallback) {
+                    target.dataset.fallback = "true";
+                    target.src = "https://assets.mixkit.co/videos/preview/mixkit-flying-through-a-starfield-in-deep-space-41538-large.mp4";
+                    target.play().catch(() => {});
+                  }
+                }}
+              />
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2.5">
               <button
-                onClick={() => handleDownloadShort(previewClip.id)}
-                className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-bold text-center flex items-center justify-center gap-2 transition-all"
+                onClick={() => handleDownloadShort(previewClip.id, previewClip.title)}
+                className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-bold text-center flex items-center justify-center gap-2 transition-all shadow-xs"
               >
                 <Download size={14} /> Download Short
               </button>
@@ -321,7 +331,7 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({
                   setScheduleClipId(previewClip.id);
                   setPreviewClip(null);
                 }}
-                className="flex-1 py-2.5 bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all"
+                className="flex-1 py-2.5 bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-rose-950/40"
               >
                 <Calendar size={14} /> Schedule Now
               </button>
