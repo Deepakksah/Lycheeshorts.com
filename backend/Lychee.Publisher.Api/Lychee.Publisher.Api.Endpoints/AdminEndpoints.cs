@@ -16,290 +16,343 @@ namespace Lychee.Publisher.Api.Endpoints;
 
 public static class AdminEndpoints
 {
-	public static IEndpointRouteBuilder MapAdminEndpoints(this IEndpointRouteBuilder app)
-	{
-		RouteGroupBuilder endpoints = app.MapGroup("/api/v1/admin").RequireAuthorization().WithTags("Admin");
-		endpoints.MapGet("/users", (Func<int, int, string, PublisherDbContext, ClaimsPrincipal, CancellationToken, Task<IResult>>)async delegate(int page, int pageSize, string? search, PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct)
-		{
-			if (!IsAdmin(caller))
-			{
-				return Results.Forbid();
-			}
-			page = Math.Max(1, page);
-			pageSize = Math.Clamp(pageSize, 5, 100);
-			IQueryable<User> query = db.Users.AsNoTracking();
-			if (!string.IsNullOrWhiteSpace(search))
-			{
-				query = query.Where((User u) => u.Email.Contains(search) || (u.DisplayName != null && u.DisplayName.Contains(search)));
-			}
-			return Results.Ok(new
-			{
-				total = await query.CountAsync(ct),
-				page = page,
-				pageSize = pageSize,
-				users = await (from u in query.OrderByDescending((User u) => u.CreatedAtUtc).Skip((page - 1) * pageSize).Take(pageSize)
-					select new AdminUserDto(u.Id, u.Email, u.DisplayName, u.Role, u.SubscriptionTier.ToString(), u.IsEmailVerified, u.LastLoginAtUtc, u.CreatedAtUtc)).ToListAsync(ct)
-			});
-		}).WithName("AdminGetUsers");
-		endpoints.MapPatch("/users/{id:guid}/role", (Func<Guid, ChangeRoleRequest, PublisherDbContext, ClaimsPrincipal, CancellationToken, Task<IResult>>)async delegate(Guid id, ChangeRoleRequest request, PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct)
-		{
-			if (!IsAdmin(caller))
-			{
-				return Results.Forbid();
-			}
-			User user = await db.Users.FindAsync(new object[1] { id }, ct);
-			if (user == null)
-			{
-				return Results.NotFound();
-			}
-			user.Role = request.Role;
-			user.UpdatedAtUtc = DateTimeOffset.UtcNow;
-			await db.SaveChangesAsync(ct);
-			return Results.Ok(new
-			{
-				userId = id,
-				newRole = request.Role
-			});
-		}).WithName("AdminChangeUserRole");
-		endpoints.MapPatch("/users/{id:guid}/tier", (Func<Guid, ChangeSubscriptionTierRequest, PublisherDbContext, ClaimsPrincipal, CancellationToken, Task<IResult>>)async delegate(Guid id, ChangeSubscriptionTierRequest request, PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct)
-		{
-			if (!IsAdmin(caller))
-			{
-				return Results.Forbid();
-			}
-			User user = await db.Users.FindAsync(new object[1] { id }, ct);
-			if (user == null)
-			{
-				return Results.NotFound();
-			}
-			if (!Enum.TryParse<SubscriptionTier>(request.Tier, ignoreCase: true, out var tier))
-			{
-				return Results.BadRequest("Invalid subscription tier.");
-			}
-			user.SubscriptionTier = tier;
-			user.UpdatedAtUtc = DateTimeOffset.UtcNow;
-			await db.SaveChangesAsync(ct);
-			return Results.Ok(new
-			{
-				userId = id,
-				newTier = tier.ToString()
-			});
-		}).WithName("AdminChangeUserTier");
-		endpoints.MapDelete("/users/{id:guid}", (Func<Guid, PublisherDbContext, ClaimsPrincipal, CancellationToken, Task<IResult>>)async delegate(Guid id, PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct)
-		{
-			if (!IsAdmin(caller))
-			{
-				return Results.Forbid();
-			}
-			User user = await db.Users.FindAsync(new object[1] { id }, ct);
-			if (user == null)
-			{
-				return Results.NotFound();
-			}
-			db.Users.Remove(user);
-			await db.SaveChangesAsync(ct);
-			return Results.NoContent();
-		}).WithName("AdminDeleteUser");
-		endpoints.MapGet("/subscriptions", (Func<int, int, PublisherDbContext, ClaimsPrincipal, CancellationToken, Task<IResult>>)async delegate(int page, int pageSize, PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct)
-		{
-			if (!IsAdmin(caller))
-			{
-				return Results.Forbid();
-			}
-			page = Math.Max(1, page);
-			pageSize = Math.Clamp(pageSize, 5, 100);
-			return Results.Ok(new
-			{
-				total = await db.Payments.CountAsync(ct),
-				page = page,
-				pageSize = pageSize,
-				rows = await (from p in (from p in db.Payments.AsNoTracking().Include((Payment p) => p.User)
-						orderby p.CreatedAtUtc descending
-						select p).Skip((page - 1) * pageSize).Take(pageSize)
-					select new AdminSubscriptionDto(p.Id, p.User.Email, p.User.DisplayName, p.Provider, p.ProviderPaymentId, p.Amount, p.Currency, p.Status, p.CreatedAtUtc)).ToListAsync(ct)
-			});
-		}).WithName("AdminGetSubscriptions");
-		endpoints.MapGet("/revenue", (Func<PublisherDbContext, ClaimsPrincipal, CancellationToken, Task<IResult>>)async delegate(PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct)
-		{
-			if (!IsAdmin(caller))
-			{
-				return Results.Forbid();
-			}
-			List<Payment> allPayments = await db.Payments.AsNoTracking().ToListAsync(ct);
-			decimal totalRevenue = allPayments.Where((Payment p) => p.Status == "Completed").Sum((Payment p) => p.Amount);
-			decimal monthlyRevenue = allPayments.Where((Payment p) => p.Status == "Completed" && p.CreatedAtUtc >= DateTimeOffset.UtcNow.AddDays(-30.0)).Sum((Payment p) => p.Amount);
-			decimal weeklyRevenue = allPayments.Where((Payment p) => p.Status == "Completed" && p.CreatedAtUtc >= DateTimeOffset.UtcNow.AddDays(-7.0)).Sum((Payment p) => p.Amount);
-			var byProvider = (from p in allPayments
-				where p.Status == "Completed"
-				group p by p.Provider into g
-				select new
-				{
-					provider = g.Key,
-					total = g.Sum((Payment p) => p.Amount),
-					count = g.Count()
-				}).ToList();
-			var last30Days = (from p in allPayments
-				where p.Status == "Completed" && p.CreatedAtUtc >= DateTimeOffset.UtcNow.AddDays(-30.0)
-				group p by p.CreatedAtUtc.Date.ToString("yyyy-MM-dd") into g
-				select new
-				{
-					date = g.Key,
-					amount = g.Sum((Payment p) => p.Amount)
-				} into x
-				orderby x.date
-				select x).ToList();
-			var userTiers = (from u in await (from u in db.Users.AsNoTracking()
-					select u.SubscriptionTier).ToListAsync(ct)
-				group u by u.ToString() into g
-				select new
-				{
-					tier = g.Key,
-					count = g.Count()
-				}).ToList();
-			return Results.Ok(new
-			{
-				totalRevenue = totalRevenue,
-				monthlyRevenue = monthlyRevenue,
-				weeklyRevenue = weeklyRevenue,
-				totalTransactions = allPayments.Count((Payment p) => p.Status == "Completed"),
-				byProvider = byProvider,
-				last30Days = last30Days,
-				userTiers = userTiers
-			});
-		}).WithName("AdminGetRevenue");
-		endpoints.MapGet("/system-stats", (Func<PublisherDbContext, ClaimsPrincipal, CancellationToken, Task<IResult>>)async delegate(PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct)
-		{
-			if (!IsAdmin(caller))
-			{
-				return Results.Forbid();
-			}
-			int totalUsers = await db.Users.CountAsync(ct);
-			int totalVideos = await db.Videos.CountAsync(ct);
-			int totalShorts = await db.Shorts.CountAsync(ct);
-			int totalSchedules = await db.Schedules.CountAsync(ct);
-			int totalPayments = await db.Payments.CountAsync(ct);
-			int totalSocial = await db.SocialAccounts.CountAsync(ct);
-			int newUsersToday = await db.Users.CountAsync((User u) => u.CreatedAtUtc >= (DateTimeOffset)DateTimeOffset.UtcNow.Date, ct);
-			var videosByStatus = (from v in await (from v in db.Videos.AsNoTracking()
-					select v.Status).ToListAsync(ct)
-				group v by v.ToString() into g
-				select new
-				{
-					status = g.Key,
-					count = g.Count()
-				}).ToList();
-			var schedulesByStatus = (from s in await (from s in db.Schedules.AsNoTracking()
-					select s.Status).ToListAsync(ct)
-				group s by s.ToString() into g
-				select new
-				{
-					status = g.Key,
-					count = g.Count()
-				}).ToList();
-			return Results.Ok(new
-			{
-				totalUsers = totalUsers,
-				totalVideos = totalVideos,
-				totalShorts = totalShorts,
-				totalSchedules = totalSchedules,
-				totalPayments = totalPayments,
-				totalSocial = totalSocial,
-				newUsersToday = newUsersToday,
-				videosByStatus = videosByStatus,
-				schedulesByStatus = schedulesByStatus,
-				serverTime = DateTimeOffset.UtcNow
-			});
-		}).WithName("AdminGetSystemStats");
-		endpoints.MapGet("/audit-logs", (Func<int, int, string, string, PublisherDbContext, ClaimsPrincipal, CancellationToken, Task<IResult>>)async delegate(int page, int pageSize, string? action, string? userId, PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct)
-		{
-			if (!IsAdmin(caller))
-			{
-				return Results.Forbid();
-			}
-			page = Math.Max(1, page);
-			pageSize = Math.Clamp(pageSize, 5, 200);
-			IQueryable<AuditLog> query = db.AuditLogs.AsNoTracking();
-			if (!string.IsNullOrWhiteSpace(action))
-			{
-				query = query.Where((AuditLog a) => a.Action.Contains(action));
-			}
-			if (!string.IsNullOrWhiteSpace(userId) && Guid.TryParse(userId, out var uid))
-			{
-				query = query.Where((AuditLog a) => a.UserId == uid);
-			}
-			return Results.Ok(new
-			{
-				total = await query.CountAsync(ct),
-				page = page,
-				pageSize = pageSize,
-				logs = await (from a in query.OrderByDescending((AuditLog a) => a.CreatedAtUtc).Skip((page - 1) * pageSize).Take(pageSize)
-					select new AdminAuditLogDto(a.Id, a.UserId, a.Action, a.EntityName, a.EntityId, a.MetadataJson, a.CreatedAtUtc)).ToListAsync(ct)
-			});
-		}).WithName("AdminGetAuditLogs");
-		endpoints.MapGet("/analytics", (Func<PublisherDbContext, ClaimsPrincipal, CancellationToken, Task<IResult>>)async delegate(PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct)
-		{
-			if (!IsAdmin(caller))
-			{
-				return Results.Forbid();
-			}
-			var userGrowth = (from d in await (from u in db.Users.AsNoTracking()
-					where u.CreatedAtUtc >= DateTimeOffset.UtcNow.AddDays(-30.0)
-					select u.CreatedAtUtc).ToListAsync(ct)
-				group d by d.Date.ToString("yyyy-MM-dd") into g
-				select new
-				{
-					date = g.Key,
-					count = g.Count()
-				} into x
-				orderby x.date
-				select x).ToList();
-			var videoFunnel = (from v in await (from v in db.Videos.AsNoTracking()
-					select v.Status).ToListAsync(ct)
-				group v by v.ToString() into g
-				select new
-				{
-					status = g.Key,
-					count = g.Count()
-				}).ToList();
-			var rawSchedules = await (from s in db.Schedules.AsNoTracking()
-				select new { s.Status, s.Platform }).ToListAsync(ct);
-			var publishStats = (from s in rawSchedules
-				group s by s.Status.ToString() into g
-				select new
-				{
-					status = g.Key,
-					count = g.Count()
-				}).ToList();
-			var platformBreakdown = (from s in rawSchedules
-				group s by s.Platform.ToString() into g
-				select new
-				{
-					platform = g.Key,
-					count = g.Count()
-				}).ToList();
-			var socialBreakdown = (from sa in await (from sa in db.SocialAccounts.AsNoTracking()
-					select sa.Platform).ToListAsync(ct)
-				group sa by sa.ToString() into g
-				select new
-				{
-					platform = g.Key,
-					count = g.Count()
-				}).ToList();
-			return Results.Ok(new
-			{
-				activeUsersLast7Days = await db.Users.CountAsync((User u) => u.LastLoginAtUtc != null && u.LastLoginAtUtc >= DateTimeOffset.UtcNow.AddDays(-7.0), ct),
-				userGrowthLast30Days = userGrowth,
-				videoFunnel = videoFunnel,
-				publishingSuccessRate = publishStats,
-				platformBreakdown = platformBreakdown,
-				socialBreakdown = socialBreakdown
-			});
-		}).WithName("AdminGetAnalytics");
-		return app;
-	}
+    public static IEndpointRouteBuilder MapAdminEndpoints(this IEndpointRouteBuilder app)
+    {
+        var endpoints = app.MapGroup("/api/v1/admin").RequireAuthorization().WithTags("Admin");
 
-	private static bool IsAdmin(ClaimsPrincipal user)
-	{
-		return user.FindFirstValue("http://schemas.microsoft.com/ws/2008/06/identity/claims/role") == "Admin";
-	}
+        // 1. Users List (In-memory sorting & paging for SQLite DateTimeOffset compatibility)
+        endpoints.MapGet("/users", async (int? page, int? pageSize, string? search, PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct) =>
+        {
+            if (!IsAdmin(caller)) return Results.Forbid();
+
+            int p = Math.Max(1, page ?? 1);
+            int ps = Math.Clamp(pageSize ?? 10, 5, 100);
+
+            IQueryable<User> query = db.Users.AsNoTracking();
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim().ToLower();
+                query = query.Where(u => u.Email.ToLower().Contains(s) || (u.DisplayName != null && u.DisplayName.ToLower().Contains(s)));
+            }
+
+            var allMatching = await query.ToListAsync(ct);
+            int total = allMatching.Count;
+            var usersList = allMatching
+                .OrderByDescending(u => u.CreatedAtUtc)
+                .Skip((p - 1) * ps)
+                .Take(ps)
+                .Select(u => new AdminUserDto(
+                    u.Id,
+                    u.Email,
+                    u.DisplayName,
+                    u.Role,
+                    u.SubscriptionTier.ToString(),
+                    u.IsEmailVerified,
+                    u.LastLoginAtUtc,
+                    u.CreatedAtUtc
+                ))
+                .ToList();
+
+            return Results.Ok(new
+            {
+                total,
+                page = p,
+                pageSize = ps,
+                users = usersList
+            });
+        }).WithName("AdminGetUsers");
+
+        // 2. Change Role
+        endpoints.MapPatch("/users/{id:guid}/role", async (Guid id, ChangeRoleRequest request, PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct) =>
+        {
+            if (!IsAdmin(caller)) return Results.Forbid();
+
+            var user = await db.Users.FindAsync([id], ct);
+            if (user == null) return Results.NotFound();
+
+            user.Role = request.Role;
+            user.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new { userId = id, newRole = request.Role });
+        }).WithName("AdminChangeUserRole");
+
+        // 3. Change Tier
+        endpoints.MapPatch("/users/{id:guid}/tier", async (Guid id, ChangeSubscriptionTierRequest request, PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct) =>
+        {
+            if (!IsAdmin(caller)) return Results.Forbid();
+
+            var user = await db.Users.FindAsync([id], ct);
+            if (user == null) return Results.NotFound();
+
+            if (!Enum.TryParse<SubscriptionTier>(request.Tier, true, out var tier))
+            {
+                return Results.BadRequest("Invalid subscription tier.");
+            }
+
+            user.SubscriptionTier = tier;
+            user.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new { userId = id, newTier = tier.ToString() });
+        }).WithName("AdminChangeUserTier");
+
+        // 4. Delete User
+        endpoints.MapDelete("/users/{id:guid}", async (Guid id, PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct) =>
+        {
+            if (!IsAdmin(caller)) return Results.Forbid();
+
+            var user = await db.Users.FindAsync([id], ct);
+            if (user == null) return Results.NotFound();
+
+            db.Users.Remove(user);
+            await db.SaveChangesAsync(ct);
+
+            return Results.NoContent();
+        }).WithName("AdminDeleteUser");
+
+        // 5. Subscriptions List (In-memory sorting & paging for SQLite DateTimeOffset compatibility)
+        endpoints.MapGet("/subscriptions", async (int? page, int? pageSize, PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct) =>
+        {
+            if (!IsAdmin(caller)) return Results.Forbid();
+
+            int p = Math.Max(1, page ?? 1);
+            int ps = Math.Clamp(pageSize ?? 10, 5, 100);
+
+            var allPayments = await db.Payments.AsNoTracking()
+                .Include(pay => pay.User)
+                .ToListAsync(ct);
+
+            int total = allPayments.Count;
+            var rows = allPayments
+                .OrderByDescending(pay => pay.CreatedAtUtc)
+                .Skip((p - 1) * ps)
+                .Take(ps)
+                .Select(pay => new AdminSubscriptionDto(
+                    pay.Id,
+                    pay.User?.Email ?? "N/A",
+                    pay.User?.DisplayName ?? "N/A",
+                    pay.Provider,
+                    pay.ProviderPaymentId,
+                    pay.Amount,
+                    pay.Currency,
+                    pay.Status,
+                    pay.CreatedAtUtc
+                ))
+                .ToList();
+
+            return Results.Ok(new
+            {
+                total,
+                page = p,
+                pageSize = ps,
+                rows
+            });
+        }).WithName("AdminGetSubscriptions");
+
+        // 6. Revenue Stats
+        endpoints.MapGet("/revenue", async (PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct) =>
+        {
+            if (!IsAdmin(caller)) return Results.Forbid();
+
+            var allPayments = await db.Payments.AsNoTracking().ToListAsync(ct);
+            var completed = allPayments.Where(pay => pay.Status == "Completed").ToList();
+
+            var cutoff30Days = DateTimeOffset.UtcNow.AddDays(-30);
+            var cutoff7Days = DateTimeOffset.UtcNow.AddDays(-7);
+
+            decimal totalRevenue = completed.Sum(pay => pay.Amount);
+            decimal monthlyRevenue = completed.Where(pay => pay.CreatedAtUtc >= cutoff30Days).Sum(pay => pay.Amount);
+            decimal weeklyRevenue = completed.Where(pay => pay.CreatedAtUtc >= cutoff7Days).Sum(pay => pay.Amount);
+
+            var byProvider = completed
+                .GroupBy(pay => pay.Provider)
+                .Select(g => new { provider = g.Key, total = g.Sum(pay => pay.Amount), count = g.Count() })
+                .ToList();
+
+            var last30Days = completed
+                .Where(pay => pay.CreatedAtUtc >= cutoff30Days)
+                .GroupBy(pay => pay.CreatedAtUtc.Date.ToString("yyyy-MM-dd"))
+                .Select(g => new { date = g.Key, amount = g.Sum(pay => pay.Amount) })
+                .OrderBy(x => x.date)
+                .ToList();
+
+            var allUsers = await db.Users.AsNoTracking().Select(u => u.SubscriptionTier).ToListAsync(ct);
+            var userTiers = allUsers
+                .GroupBy(tier => tier.ToString())
+                .Select(g => new { tier = g.Key, count = g.Count() })
+                .ToList();
+
+            return Results.Ok(new
+            {
+                totalRevenue,
+                monthlyRevenue,
+                weeklyRevenue,
+                totalTransactions = completed.Count,
+                byProvider,
+                last30Days,
+                userTiers
+            });
+        }).WithName("AdminGetRevenue");
+
+        // 7. System Stats (Mapped to both /stats and /system-stats)
+        async Task<IResult> GetSystemStatsHandler(PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct)
+        {
+            if (!IsAdmin(caller)) return Results.Forbid();
+
+            var todayStart = DateTimeOffset.UtcNow.Date;
+
+            int totalUsers = await db.Users.CountAsync(ct);
+            int totalVideos = await db.Videos.CountAsync(ct);
+            int totalShorts = await db.Shorts.CountAsync(ct);
+            int totalSchedules = await db.Schedules.CountAsync(ct);
+            int totalPayments = await db.Payments.CountAsync(ct);
+            int totalSocial = await db.SocialAccounts.CountAsync(ct);
+
+            var userDates = await db.Users.AsNoTracking().Select(u => u.CreatedAtUtc).ToListAsync(ct);
+            int newUsersToday = userDates.Count(d => d >= todayStart);
+
+            var videoStatuses = await db.Videos.AsNoTracking().Select(v => v.Status).ToListAsync(ct);
+            var videosByStatus = videoStatuses
+                .GroupBy(s => s.ToString())
+                .Select(g => new { status = g.Key, count = g.Count() })
+                .ToList();
+
+            var scheduleStatuses = await db.Schedules.AsNoTracking().Select(s => s.Status).ToListAsync(ct);
+            var schedulesByStatus = scheduleStatuses
+                .GroupBy(s => s.ToString())
+                .Select(g => new { status = g.Key, count = g.Count() })
+                .ToList();
+
+            return Results.Ok(new
+            {
+                totalUsers,
+                totalVideos,
+                totalShorts,
+                totalSchedules,
+                totalPayments,
+                totalSocial,
+                newUsersToday,
+                videosByStatus,
+                schedulesByStatus,
+                serverTime = DateTimeOffset.UtcNow
+            });
+        }
+
+        endpoints.MapGet("/stats", GetSystemStatsHandler).WithName("AdminGetStats");
+        endpoints.MapGet("/system-stats", GetSystemStatsHandler).WithName("AdminGetSystemStats");
+
+        // 8. Audit Logs (In-memory sorting & paging for SQLite DateTimeOffset compatibility)
+        endpoints.MapGet("/audit-logs", async (int? page, int? pageSize, string? action, string? userId, PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct) =>
+        {
+            if (!IsAdmin(caller)) return Results.Forbid();
+
+            int p = Math.Max(1, page ?? 1);
+            int ps = Math.Clamp(pageSize ?? 10, 5, 200);
+
+            IQueryable<AuditLog> query = db.AuditLogs.AsNoTracking();
+            if (!string.IsNullOrWhiteSpace(action))
+            {
+                var aLower = action.Trim().ToLower();
+                query = query.Where(a => a.Action.ToLower().Contains(aLower));
+            }
+            if (!string.IsNullOrWhiteSpace(userId) && Guid.TryParse(userId, out var uid))
+            {
+                query = query.Where(a => a.UserId == uid);
+            }
+
+            var allLogs = await query.ToListAsync(ct);
+            int total = allLogs.Count;
+            var logDtos = allLogs
+                .OrderByDescending(a => a.CreatedAtUtc)
+                .Skip((p - 1) * ps)
+                .Take(ps)
+                .Select(a => new AdminAuditLogDto(
+                    a.Id,
+                    a.UserId,
+                    a.Action,
+                    a.EntityName,
+                    a.EntityId,
+                    a.MetadataJson,
+                    a.CreatedAtUtc
+                ))
+                .ToList();
+
+            return Results.Ok(new
+            {
+                total,
+                page = p,
+                pageSize = ps,
+                logs = logDtos
+            });
+        }).WithName("AdminGetAuditLogs");
+
+        // 9. Analytics (In-memory for SQLite DateTimeOffset compatibility)
+        endpoints.MapGet("/analytics", async (PublisherDbContext db, ClaimsPrincipal caller, CancellationToken ct) =>
+        {
+            if (!IsAdmin(caller)) return Results.Forbid();
+
+            var cutoff30Days = DateTimeOffset.UtcNow.AddDays(-30);
+            var cutoff7Days = DateTimeOffset.UtcNow.AddDays(-7);
+
+            var allUsers = await db.Users.AsNoTracking()
+                .Select(u => new { u.CreatedAtUtc, u.LastLoginAtUtc })
+                .ToListAsync(ct);
+
+            var userGrowth = allUsers
+                .Where(u => u.CreatedAtUtc >= cutoff30Days)
+                .GroupBy(u => u.CreatedAtUtc.Date.ToString("yyyy-MM-dd"))
+                .Select(g => new { date = g.Key, count = g.Count() })
+                .OrderBy(x => x.date)
+                .ToList();
+
+            var videoStatuses = await db.Videos.AsNoTracking().Select(v => v.Status).ToListAsync(ct);
+            var videoFunnel = videoStatuses
+                .GroupBy(v => v.ToString())
+                .Select(g => new { status = g.Key, count = g.Count() })
+                .ToList();
+
+            var rawSchedules = await db.Schedules.AsNoTracking()
+                .Select(s => new { s.Status, s.Platform })
+                .ToListAsync(ct);
+
+            var publishStats = rawSchedules
+                .GroupBy(s => s.Status.ToString())
+                .Select(g => new { status = g.Key, count = g.Count() })
+                .ToList();
+
+            var platformBreakdown = rawSchedules
+                .GroupBy(s => s.Platform.ToString())
+                .Select(g => new { platform = g.Key, count = g.Count() })
+                .ToList();
+
+            var socialAccounts = await db.SocialAccounts.AsNoTracking().Select(sa => sa.Platform).ToListAsync(ct);
+            var socialBreakdown = socialAccounts
+                .GroupBy(sa => sa.ToString())
+                .Select(g => new { platform = g.Key, count = g.Count() })
+                .ToList();
+
+            int active7Days = allUsers.Count(u => u.LastLoginAtUtc != null && u.LastLoginAtUtc >= cutoff7Days);
+
+            return Results.Ok(new
+            {
+                activeUsersLast7Days = active7Days,
+                userGrowthLast30Days = userGrowth,
+                videoFunnel,
+                publishingSuccessRate = publishStats,
+                platformBreakdown,
+                socialBreakdown
+            });
+        }).WithName("AdminGetAnalytics");
+
+        return app;
+    }
+
+    private static bool IsAdmin(ClaimsPrincipal user)
+    {
+        return user.IsInRole("Admin") ||
+               user.FindFirstValue("http://schemas.microsoft.com/ws/2008/06/identity/claims/role") == "Admin" ||
+               user.FindFirstValue(ClaimTypes.Role) == "Admin" ||
+               user.FindFirstValue("role") == "Admin";
+    }
 }
