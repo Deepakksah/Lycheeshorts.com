@@ -5,7 +5,8 @@ import {
   Settings, Sparkles, Palette, Share2, Sliders, User,
   CheckCircle2, RotateCcw, Volume2, Film, Check, ArrowLeftRight,
   ExternalLink, Shield, Cpu, RefreshCw, Zap, SlidersHorizontal,
-  Layers, HardDrive, Bell, Key, Globe, Eye
+  Layers, HardDrive, Bell, Key, Globe, Eye, EyeOff, Layout,
+  Sliders as SlidersIcon, Monitor, Sun, Moon, ToggleLeft, ToggleRight
 } from "lucide-react";
 import { colorThemes, ThemeColor, DockPosition } from "./FloatingThemeWidget";
 
@@ -16,6 +17,8 @@ interface SettingsTabProps {
   setDockPosition: (pos: DockPosition) => void;
   selectedColor: ThemeColor;
   setSelectedColor: (c: ThemeColor) => void;
+  showFloatingWidget?: boolean;
+  setShowFloatingWidget?: (show: boolean) => void;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -25,8 +28,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   setDockPosition,
   selectedColor,
   setSelectedColor,
+  showFloatingWidget = true,
+  setShowFloatingWidget,
 }) => {
-  const [activeSection, setActiveSection] = useState<"ai" | "theme" | "publishing" | "system" | "account">("ai");
+  const [activeSection, setActiveSection] = useState<"theme" | "ai" | "publishing" | "system" | "account">("theme");
   const [savedNotice, setSavedNotice] = useState(false);
   const [apiPingStatus, setApiPingStatus] = useState<"checking" | "online" | "error">("online");
 
@@ -106,9 +111,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setApiUrl("http://localhost:5000");
     setSelectedColor("rose");
     setDockPosition("right");
+    if (setShowFloatingWidget) setShowFloatingWidget(true);
     localStorage.removeItem("lychee_settings");
     localStorage.removeItem("lychee_theme_color");
     localStorage.removeItem("lychee_dock_pos");
+    localStorage.removeItem("lychee_show_floating");
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 2000);
   };
@@ -127,6 +134,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     }
   };
 
+  const currentThemeObj = colorThemes[selectedColor] || colorThemes.rose;
+
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-8 space-y-6">
       {/* Top Banner / Title Header */}
@@ -143,7 +152,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Fine-tune AI video virality analysis, color themes, floating controls, social defaults, and API integrations
+              Live theme customizer, floating controls dock, AI virality tuning, social defaults, and API engine
             </p>
           </div>
         </div>
@@ -173,8 +182,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         <div className="md:col-span-1 space-y-2">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-2 space-y-1">
             {[
+              { id: "theme",      label: "UI & Theme Customizer", icon: Palette,  desc: "Colors & Left/Right dock" },
               { id: "ai",         label: "AI Video & Virality",   icon: Sparkles, desc: "Aspect, timestamps & filters" },
-              { id: "theme",      label: "Theme & Customizer",    icon: Palette,  desc: "Colors & Left/Right dock" },
               { id: "publishing", label: "Publishing Defaults",   icon: Share2,   desc: "Tags, privacy & comments" },
               { id: "system",     label: "API & Background Jobs", icon: Sliders,  desc: "Host endpoints & Hangfire" },
               { id: "account",    label: "Account & Plan Limits", icon: User,     desc: "Tier, usage & credits" },
@@ -202,7 +211,158 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
         {/* Content Area */}
         <div className="md:col-span-3 space-y-6">
-          {/* SECTION 1: AI VIDEO & VIRALITY */}
+          {/* SECTION 1: THEME & UI CUSTOMIZER */}
+          {activeSection === "theme" && (
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-6">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <Palette size={16} className="text-rose-500" /> UI Customization & Theme Center
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">Control live color themes, screen positions, and layout preferences</p>
+              </div>
+
+              {/* Floating Widget Toggle & Dock Position */}
+              <div className="space-y-4 bg-slate-50 p-5 rounded-2xl border border-slate-200/80">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                      <Layout size={14} className="text-rose-500" /> Floating Quick Customizer Widget
+                    </h4>
+                    <p className="text-[11px] text-slate-400">Show or hide the floating tab on the side of your screen</p>
+                  </div>
+                  {setShowFloatingWidget && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !showFloatingWidget;
+                        setShowFloatingWidget(next);
+                        localStorage.setItem("lychee_show_floating", String(next));
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        showFloatingWidget
+                          ? "bg-rose-600 text-white shadow-xs"
+                          : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                      }`}
+                    >
+                      {showFloatingWidget ? <Eye size={13} /> : <EyeOff size={13} />}
+                      {showFloatingWidget ? "Visible" : "Hidden"}
+                    </button>
+                  )}
+                </div>
+
+                {showFloatingWidget && (
+                  <div className="space-y-2 pt-3 border-t border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                        <ArrowLeftRight size={13} className="text-rose-500" /> Floating Edge Dock Side
+                      </label>
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">
+                        Docked: {dockPosition}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDockPosition("left");
+                          localStorage.setItem("lychee_dock_pos", "left");
+                        }}
+                        className={`flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all ${
+                          dockPosition === "left"
+                            ? "bg-white text-rose-600 shadow-md ring-2 ring-rose-500/20 border border-rose-200"
+                            : "text-slate-600 hover:text-slate-900 bg-slate-100"
+                        }`}
+                      >
+                        <span>⬅️</span> Float on Left Edge
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDockPosition("right");
+                          localStorage.setItem("lychee_dock_pos", "right");
+                        }}
+                        className={`flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all ${
+                          dockPosition === "right"
+                            ? "bg-white text-rose-600 shadow-md ring-2 ring-rose-500/20 border border-rose-200"
+                            : "text-slate-600 hover:text-slate-900 bg-slate-100"
+                        }`}
+                      >
+                        Float on Right Edge <span>➡️</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Accent Color Themes */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-rose-500" /> Live Accent Color Palettes (6 Curated Themes)
+                </h4>
+                <p className="text-[11px] text-slate-400">Click any palette to instantly apply colors across all badges, highlights, and buttons</p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {(Object.keys(colorThemes) as ThemeColor[]).map((key) => {
+                    const item = colorThemes[key];
+                    const isSelected = selectedColor === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          setSelectedColor(key);
+                          localStorage.setItem("lychee_theme_color", key);
+                          document.documentElement.style.setProperty("--theme-primary", item.primary);
+                          document.documentElement.setAttribute("data-theme-color", key);
+                        }}
+                        className={`flex items-center gap-3 p-3.5 rounded-2xl border transition-all text-left ${
+                          isSelected
+                            ? "border-slate-900 bg-slate-900 text-white shadow-md ring-2 ring-slate-900/20"
+                            : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div
+                          className={`h-8 w-8 rounded-full bg-gradient-to-tr ${item.gradient} shadow-sm shrink-0 flex items-center justify-center`}
+                        >
+                          {isSelected && <Check size={16} className="text-white stroke-[3]" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-black truncate">{item.name}</p>
+                          <p className={`text-[10px] truncate ${isSelected ? "text-slate-300" : "text-slate-400"}`}>
+                            {item.primary}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Live Preview Card */}
+              <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 space-y-3">
+                <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
+                  🎨 Live Theme Preview ({currentThemeObj.name})
+                </span>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    className={`px-4 py-2 rounded-xl text-white text-xs font-black bg-gradient-to-r ${currentThemeObj.gradient} shadow-md`}
+                  >
+                    Primary Action Button
+                  </button>
+                  <span className={`text-xs font-black px-3 py-1 rounded-full ${currentThemeObj.bgLight} ${currentThemeObj.accent} border ${currentThemeObj.borderLight}`}>
+                    🔥 Active Badge
+                  </span>
+                  <span className="text-xs text-slate-500 font-bold">
+                    Primary Accent: <span className="font-mono">{currentThemeObj.primary}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION 2: AI VIDEO & VIRALITY */}
           {activeSection === "ai" && (
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-6">
               <div>
@@ -343,97 +503,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     ))}
                   </div>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* SECTION 2: THEME & CUSTOMIZER */}
-          {activeSection === "theme" && (
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-6">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                  <Palette size={16} className="text-rose-500" /> UI Customization & Floating Positions
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">Control live color themes, screen positions, and layout preferences</p>
-              </div>
-
-              {/* Floating Quick Customizer Position: Left vs Right */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                      <ArrowLeftRight size={14} className="text-rose-500" /> Floating Quick Widget Screen Dock
-                    </h4>
-                    <p className="text-[11px] text-slate-400">Position the floating action tab on the left or right side of your dashboard</p>
-                  </div>
-                  <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
-                    Currently: {dockPosition.toUpperCase()}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setDockPosition("left")}
-                    className={`flex items-center justify-center gap-2 py-3.5 rounded-xl text-xs font-black transition-all ${
-                      dockPosition === "left"
-                        ? "bg-white text-rose-600 shadow-md ring-2 ring-rose-500/20 border border-rose-200"
-                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                    }`}
-                  >
-                    <span>⬅️</span> Dock on Left Edge
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDockPosition("right")}
-                    className={`flex items-center justify-center gap-2 py-3.5 rounded-xl text-xs font-black transition-all ${
-                      dockPosition === "right"
-                        ? "bg-white text-rose-600 shadow-md ring-2 ring-rose-500/20 border border-rose-200"
-                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                    }`}
-                  >
-                    Dock on Right Edge <span>➡️</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Accent Color Themes */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-rose-500" /> Live Accent Color Palettes (6 Curated Themes)
-                </h4>
-                <p className="text-[11px] text-slate-400">Instant real-time update of badges, highlights, and primary accents</p>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {(Object.keys(colorThemes) as ThemeColor[]).map((key) => {
-                    const item = colorThemes[key];
-                    const isSelected = selectedColor === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setSelectedColor(key)}
-                        className={`flex items-center gap-3 p-3.5 rounded-2xl border transition-all text-left ${
-                          isSelected
-                            ? "border-slate-900 bg-slate-900 text-white shadow-md ring-2 ring-slate-900/20"
-                            : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 hover:bg-slate-50"
-                        }`}
-                      >
-                        <div
-                          className={`h-8 w-8 rounded-full bg-gradient-to-tr ${item.gradient} shadow-sm shrink-0 flex items-center justify-center`}
-                        >
-                          {isSelected && <Check size={16} className="text-white stroke-[3]" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-black truncate">{item.name}</p>
-                          <p className={`text-[10px] truncate ${isSelected ? "text-slate-300" : "text-slate-400"}`}>
-                            {item.primary}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
             </div>
           )}
