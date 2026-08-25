@@ -26,7 +26,7 @@ export default function DashboardPage() {
   const [dockPosition, setDockPosition] = useState<DockPosition>("right");
   const [selectedColor, setSelectedColor] = useState<ThemeColor>("rose");
   const [authMode, setAuthMode] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
-  const [authEmail, setAuthEmail] = useState("admin@Lychee.com");
+  const [authEmail, setAuthEmail] = useState("admin@lychee.com");
   const [authPassword, setAuthPassword] = useState("123456");
   const [authDisplayName, setAuthDisplayName] = useState("");
   const [verificationToken, setVerificationToken] = useState("");
@@ -87,9 +87,65 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [actionError, setActionError] = useState("");
 
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
+    setToken(null);
+    setCurrentUser(null);
+    setVideos([]);
+    setSchedules([]);
+  }, []);
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setAuthError("");
+    try {
+      if (authMode === "login") {
+        const res = await api.auth.login({ email: authEmail.trim().toLowerCase(), password: authPassword });
+        if (res.accessToken) {
+          localStorage.setItem("token", res.accessToken);
+          if (res.refreshToken) localStorage.setItem("refreshToken", res.refreshToken);
+          setToken(res.accessToken);
+          setCurrentUser(res);
+        }
+      } else if (authMode === "register") {
+        const res = await api.auth.register({
+          email: authEmail.trim().toLowerCase(),
+          password: authPassword,
+          displayName: authDisplayName.trim() || authEmail.split("@")[0],
+        });
+        if (res.accessToken) {
+          localStorage.setItem("token", res.accessToken);
+          if (res.refreshToken) localStorage.setItem("refreshToken", res.refreshToken);
+          setToken(res.accessToken);
+          setCurrentUser(res);
+        } else {
+          setAuthMode("login");
+          setAuthError("Registration successful! Please sign in.");
+        }
+      } else if (authMode === "verify") {
+        await api.auth.verifyEmail(verificationToken.trim());
+        setAuthMode("login");
+        setAuthError("Email verified successfully! Please log in.");
+      } else if (authMode === "forgot") {
+        await api.auth.forgotPassword(authEmail.trim().toLowerCase());
+        setAuthError("Password reset instructions sent to your email.");
+      } else if (authMode === "reset") {
+        await api.auth.resetPassword({ token: resetToken.trim(), newPassword });
+        setAuthMode("login");
+        setAuthError("Password reset successfully! Please log in.");
+      }
+    } catch (err: any) {
+      setAuthError(err.message || "Authentication failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchUserData = useCallback(async () => {
     try { setCurrentUser(await api.auth.me()); } catch { handleLogout(); }
-  }, []);
+  }, [handleLogout]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -166,36 +222,6 @@ export default function DashboardPage() {
     }, 3000);
     return () => clearInterval(interval);
   }, [token, videos, selectedVideo]);
-
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true); setAuthError("");
-    try {
-      if (authMode === "login") {
-        const r = await api.auth.login({ email: authEmail, password: authPassword });
-        localStorage.setItem("token", r.accessToken); setToken(r.accessToken);
-        setCurrentUser({ userId: r.userId, email: r.email, displayName: r.displayName, role: r.role });
-        setAuthPassword("");
-      } else if (authMode === "register") {
-        const r = await api.auth.register({ email: authEmail, password: authPassword, displayName: authDisplayName });
-        localStorage.setItem("token", r.accessToken); setToken(r.accessToken);
-        setCurrentUser({ userId: r.userId, email: r.email, displayName: r.displayName, role: r.role });
-        setAuthPassword("");
-      } else if (authMode === "verify") {
-        await api.auth.verifyEmail(verificationToken); setVerificationToken(""); setAuthMode("login");
-      } else if (authMode === "forgot") {
-        await api.auth.forgotPassword(authEmail); setAuthMode("reset");
-      } else if (authMode === "reset") {
-        await api.auth.resetPassword({ token: resetToken, newPassword });
-        setResetToken(""); setNewPassword(""); setAuthMode("login");
-      }
-    } catch (err: any) { setAuthError(err.message || "Authentication failed."); }
-    finally { setLoading(false); }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("token"); setToken(null); setCurrentUser(null);
-    setVideos([]); setSelectedVideo(null); setSelectedVideoShorts([]); setSchedules([]);
-  };
 
   const loadAdminData = useCallback(async () => {
     if (!token) return; setAdminLoading(true);
