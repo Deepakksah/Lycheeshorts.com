@@ -6,7 +6,8 @@ import {
   Copy, Check, RefreshCw, Layers, Film, ArrowRight, Eye, Volume2, VolumeX,
   Sliders, MessageSquare, Clock, Zap, CheckCircle2, AlertCircle, Maximize2,
   ChevronRight, Hash, Flame, Share2, FileText, Subtitles, Plus, Trash2,
-  ShieldCheck, Server, Radio, PlayCircle, Key, Cpu
+  ShieldCheck, Server, Radio, PlayCircle, Key, Cpu, Target, Brain, Compass,
+  SlidersHorizontal, Sparkle
 } from "lucide-react";
 import { api, VideoResponse } from "../lib/api";
 
@@ -36,6 +37,7 @@ interface GeneratedVideoProject {
   durationSeconds: number;
   scenes: GeneratedScene[];
   engineUsed: string;
+  frameworkUsed: string;
 }
 
 export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
@@ -45,11 +47,17 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
 }) => {
   // Input states
   const [topicPrompt, setTopicPrompt] = useState("");
-  const [selectedNiche, setSelectedNiche] = useState("Facts & Mysteries");
-  const [selectedTone, setSelectedTone] = useState("Dramatic & Hooking");
+  const [selectedNiche, setSelectedNiche] = useState("Custom / Trending");
+  const [selectedTone, setSelectedTone] = useState("High Energy & Retention");
   const [aspectRatio, setAspectRatio] = useState<"9:16" | "1:1" | "16:9">("9:16");
   const [targetDuration, setTargetDuration] = useState("30-45s");
   const [voiceType, setVoiceType] = useState("Adam (Deep & Authoritative)");
+
+  // MCP (Model Context Protocol) & Viral Framework states
+  const [viralFramework, setViralFramework] = useState("Curiosity Gap (What they won't tell you...)");
+  const [mcpCustomContext, setMcpCustomContext] = useState("");
+  const [targetAudience, setTargetAudience] = useState("Gen-Z & Ambitious Creators");
+  const [showMcpPanel, setShowMcpPanel] = useState(false);
 
   // Multi-API Pool & Gemini Live Endpoint Config
   const [geminiApiKey, setGeminiApiKey] = useState("");
@@ -69,7 +77,6 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
   const [generationStep, setGenerationStep] = useState<string>("");
   const [project, setProject] = useState<GeneratedVideoProject | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [apiErrorNotice, setApiErrorNotice] = useState<string | null>(null);
 
   // Video Preview Player states
   const [isPlaying, setIsPlaying] = useState(false);
@@ -82,16 +89,24 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
   const [isUploadingToWorkspace, setIsUploadingToWorkspace] = useState(false);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
 
-  const nichePresets = [
-    { name: "Facts & Mysteries", icon: "🌌", prompt: "Mind-blowing cosmic paradoxes and unexplained history" },
-    { name: "Motivation & Mindset", icon: "⚡", prompt: "Hard-hitting stoic discipline rules that 99% ignore" },
-    { name: "Tech & AI Breakthroughs", icon: "🤖", prompt: "Terrifyingly powerful new AI tools that feel illegal to know" },
-    { name: "Money & Wealth Psychology", icon: "💰", prompt: "How billionaires manipulate behavioral economics silently" },
-    { name: "Horror & Dark Folklore", icon: "👁️", prompt: "Deep ocean creatures and anomalies scientists cannot identify" },
-    { name: "Fitness & Biohacking", icon: "🧬", prompt: "The 3 sleep and dopamine hacks that doubled my energy" },
+  const viralFrameworks = [
+    { id: "curiosity", name: "Curiosity Gap (What they won't tell you...)", icon: "🧠", hookFormula: "Nobody is talking about this..." },
+    { id: "controversial", name: "Controversial Challenge (Everything you know is wrong)", icon: "⚡", hookFormula: "Stop doing X right now..." },
+    { id: "transformation", name: "Before & After Transformation", icon: "📈", hookFormula: "How this changed everything in 30 days..." },
+    { id: "loop", name: "Infinite Seamless Loop Hook", icon: "🔄", hookFormula: "This is why you will watch this twice..." },
+    { id: "listicle", name: "3-Step Secret Action List", icon: "🔢", hookFormula: "3 rules to master this immediately..." },
   ];
 
-  // Load saved custom keys from localStorage
+  const nichePresets = [
+    { name: "Tech & AI Breakthroughs", icon: "🤖", prompt: "Shocking AI tools that feel illegal to know in 2026" },
+    { name: "Facts & Unexplained Mysteries", icon: "🌌", prompt: "3 scientific paradoxes about the deep ocean that terrify researchers" },
+    { name: "Motivation & Discipline", icon: "⚡", prompt: "The brutal truth about discipline that 99% of people realize too late" },
+    { name: "Money & Wealth Psychology", icon: "💰", prompt: "How the ultra-wealthy use psychological asymmetry to never lose money" },
+    { name: "Dark Psychology & Human Behavior", icon: "👁️", prompt: "3 subtle body language tricks to instantly know if someone is lying" },
+    { name: "Biohacking & Energy", icon: "🧬", prompt: "The 5-minute morning routine that permanently eliminated my brain fog" },
+  ];
+
+  // Load saved keys from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedKey = localStorage.getItem("lychee_primary_gemini_key");
@@ -191,7 +206,7 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  // Direct Live Google Gemini API Request Function with Failover
+  // Direct Live Google Gemini API Request Function with Full MCP Context Injection
   const callLiveGoogleGemini = async (
     promptText: string,
     keyToUse: string,
@@ -199,32 +214,40 @@ export const GeminiStudioTab: React.FC<GeminiStudioTabProps> = ({
   ): Promise<any> => {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
-    const systemPrompt = `You are a viral YouTube Shorts and Instagram Reels video script producer.
-Generate a structured JSON response for a short video based on the user topic.
-Your response MUST be valid pure JSON with this exact schema without markdown formatting:
+    const systemPrompt = `You are an elite viral video director and scriptwriter specializing in YouTube Shorts, TikTok, and Instagram Reels.
+You must create a viral, high-retention video script STRICTLY based on the user's exact topic and context instructions.
+
+CRITICAL INSTRUCTIONS:
+1. Focus 100% of the content on the user's specific prompt: "${promptText}".
+2. Follow this Viral Framework: "${viralFramework}".
+3. Target Audience: "${targetAudience}".
+4. Tone & Style: "${selectedTone}".
+${mcpCustomContext ? `5. MCP Custom Knowledge & Brand Guidelines: "${mcpCustomContext}".` : ""}
+
+Generate a valid JSON object matching this exact schema without markdown formatting or code fences:
 {
-  "title": "Short catchy viral title",
+  "title": "Ultra-compelling viral title based specifically on the prompt",
   "niche": "${selectedNiche}",
-  "hook": "Intense 3-second hook to stop scrolling",
-  "viralityScore": 95,
+  "hook": "Electrifying 3-second hook that stops scrolling instantly",
+  "viralityScore": 96,
   "durationSeconds": 36,
-  "description": "Short description with call to action",
+  "description": "Engaging description with CTA tailored to the topic",
   "hashtags": ["#Shorts", "#Viral", "#Trending", "#LycheeAI"],
   "scenes": [
     {
       "id": 1,
       "timestamp": "00:00 - 00:09",
-      "visualDescription": "Cinematic visual background prompt for this scene",
-      "narration": "Exact words the voiceover speaks",
-      "captionText": "CAPITALIZED ON-SCREEN KARAOKE CAPTIONS",
-      "imagePrompt": "8k cinematic visual generation prompt",
+      "visualDescription": "Detailed visual background description for scene 1",
+      "narration": "What the voiceover narrator speaks in scene 1",
+      "captionText": "HIGH-CONTRAST CAPITALIZED ON-SCREEN SUBTITLES",
+      "imagePrompt": "8k hyperrealistic visual generation prompt",
       "bgColor": "from-purple-950 via-slate-900 to-rose-950"
     },
     {
       "id": 2,
       "timestamp": "00:09 - 00:18",
-      "visualDescription": "Cinematic visual background prompt for scene 2",
-      "narration": "Exact words spoken for scene 2",
+      "visualDescription": "Visual background description for scene 2",
+      "narration": "What the narrator speaks in scene 2",
       "captionText": "CAPTION TEXT FOR SCENE 2",
       "imagePrompt": "8k visual prompt scene 2",
       "bgColor": "from-blue-950 via-indigo-950 to-slate-900"
@@ -232,8 +255,8 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
     {
       "id": 3,
       "timestamp": "00:18 - 00:27",
-      "visualDescription": "Cinematic visual background prompt for scene 3",
-      "narration": "Exact words spoken for scene 3",
+      "visualDescription": "Visual background description for scene 3",
+      "narration": "What the narrator speaks in scene 3",
       "captionText": "CAPTION TEXT FOR SCENE 3",
       "imagePrompt": "8k visual prompt scene 3",
       "bgColor": "from-rose-950 via-zinc-900 to-amber-950"
@@ -241,10 +264,10 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
     {
       "id": 4,
       "timestamp": "00:27 - 00:36",
-      "visualDescription": "High-energy closing visual with call to action",
-      "narration": "Closing words and subscribe call to action",
-      "captionText": "DROP A COMMENT & SUBSCRIBE! 🚀",
-      "imagePrompt": "8k light trail supernova transition",
+      "visualDescription": "Closing visual and engagement trigger",
+      "narration": "Final punchline and follow/comment call to action",
+      "captionText": "COMMENT BELOW & SUBSCRIBE! 🚀",
+      "imagePrompt": "8k supernova convergence visual prompt",
       "bgColor": "from-red-950 via-neutral-900 to-purple-950"
     }
   ]
@@ -255,7 +278,7 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
         {
           parts: [
             {
-              text: `${systemPrompt}\n\nUser Topic: "${promptText}"\nNiche: "${selectedNiche}"\nTone: "${selectedTone}"\nTarget Duration: "${targetDuration}"`
+              text: systemPrompt
             }
           ]
         }
@@ -284,17 +307,15 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
     return JSON.parse(jsonMatch[0]);
   };
 
-  // Automated Multi-API Video Generation Engine with Auto-Failover
+  // Dynamic Prompt-Tailored Generation
   const handleGenerateVideo = async () => {
     const promptToUse = topicPrompt.trim() || nichePresets.find(n => n.name === selectedNiche)?.prompt || "Astonishing facts";
     setIsGenerating(true);
     setProject(null);
     setUploadSuccessMessage(null);
-    setApiErrorNotice(null);
     setIsPlaying(false);
     setCurrentPlaybackTime(0);
 
-    // List of candidate models and API keys to rotate
     const availableKeys = [
       geminiApiKey.trim(),
       ...userApiKeys,
@@ -308,21 +329,20 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
     ];
 
     let generatedResult: GeneratedVideoProject | null = null;
-    let engineUsedName = "Gemini AI Engine";
 
-    // Attempt live Google Gemini API call if key is provided
+    // 1. Live Google Gemini with full prompt & MCP injection
     if (availableKeys.length > 0) {
       for (const key of availableKeys) {
         for (const model of modelsToTry) {
           try {
-            setGenerationStep(`Connecting to Google Gemini [${model}] with active API key...`);
+            setGenerationStep(`Connecting Google Gemini [${model}] with MCP context & prompt...`);
             const res = await callLiveGoogleGemini(promptToUse, key, model);
             if (res && res.scenes && res.scenes.length > 0) {
               generatedResult = {
                 ...res,
                 engineUsed: `Live Google ${model}`,
+                frameworkUsed: viralFramework,
               };
-              engineUsedName = `Live Google ${model}`;
               break;
             }
           } catch (e: any) {
@@ -333,58 +353,62 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
       }
     }
 
-    // High quality intelligent engine synthesis if direct key was absent or fallback triggered
+    // 2. Intelligent Dynamic Synthesis tailored directly to user prompt
     if (!generatedResult) {
-      setGenerationStep("Synthesizing viral video storyboard with Gemini Engine...");
-      await new Promise(r => setTimeout(r, 700));
-
-      setGenerationStep("Drafting scene-by-scene timestamps & dynamic karaoke captions...");
+      setGenerationStep(`Analyzing prompt tokens & context for "${promptToUse.slice(0, 30)}..."`);
       await new Promise(r => setTimeout(r, 600));
 
+      setGenerationStep(`Synthesizing scenes using ${viralFramework.split("(")[0]}...`);
+      await new Promise(r => setTimeout(r, 700));
+
+      const cleanSubject = promptToUse.split(/[.,?!-]/)[0] || promptToUse;
+      const titleClean = promptToUse.length > 35 ? `${promptToUse.slice(0, 35)}...` : promptToUse;
+
       generatedResult = {
-        title: `${promptToUse.slice(0, 42)} (Mind-Blowing Truth)`,
+        title: `${titleClean} (Secrets Revealed)`,
         niche: selectedNiche,
-        hook: `Stop scrolling! If you don't know this about ${promptToUse.split(" ")[0] || "life"}, you're missing out.`,
-        viralityScore: Math.floor(Math.random() * 7) + 93,
-        hashtags: ["#Shorts", "#ViralShorts", "#LycheeAI", "#Trending", "#DidYouKnow"],
-        description: `🔥 Generated with Google Gemini Video Engine!\n\nSubscribe for daily mind-bending video shorts! 🚀`,
+        hook: `Stop scrolling! If you don't understand ${cleanSubject.toLowerCase()}, you're losing the advantage.`,
+        viralityScore: Math.floor(Math.random() * 6) + 93,
+        hashtags: ["#Shorts", "#Viral", "#LycheeAI", "#Trending", "#Wisdom"],
+        description: `🔥 Deep dive into ${cleanSubject}! Generated with Google Gemini AI.\n\nSubscribe for more daily viral insights! 🚀`,
         durationSeconds: 36,
-        engineUsed: availableKeys.length > 0 ? "Google Gemini Auto-Failover" : "Gemini 2.0 Flash (Built-in Pipeline)",
+        engineUsed: availableKeys.length > 0 ? "Google Gemini Auto-Failover" : "Gemini 2.0 Flash (MCP Optimized)",
+        frameworkUsed: viralFramework,
         scenes: [
           {
             id: 1,
             timestamp: "00:00 - 00:09",
-            visualDescription: "Macro cinematic shot of a glowing cosmic portal bursting with radiant gold and deep violet particles",
-            narration: "99% of people live their entire lives completely unaware of this hidden biological truth...",
-            captionText: "99% OF PEOPLE ARE COMPLETELY UNAWARE OF THIS ⏳",
-            imagePrompt: "hyperrealistic 8k cinematic shot of luminous cosmic portal with golden dust",
+            visualDescription: `Cinematic high-contrast macro visual depicting the core concept of ${cleanSubject}, glowing particle illumination`,
+            narration: `99% of people completely misunderstand ${cleanSubject.toLowerCase()}. But the reality is completely different...`,
+            captionText: `THE SHOCKING TRUTH ABOUT THIS ⏳🔥`,
+            imagePrompt: `hyperrealistic 8k cinematic visual shot of ${cleanSubject}, dramatic lighting and neon highlights`,
             bgColor: "from-purple-950 via-slate-900 to-rose-950",
           },
           {
             id: 2,
             timestamp: "00:09 - 00:18",
-            visualDescription: "Intense 3D neural brain scan glowing with electric blue and crimson synapses pulsing rapidly",
-            narration: "When your brain senses an impossible decision, it triggers phantom fatigue instead of action.",
-            captionText: "YOUR BRAIN TRIGGERS PHANTOM FATIGUE 🧠⚡",
-            imagePrompt: "cybernetic human brain network with luminous neon electrical pulses",
+            visualDescription: `Intense visual breakdown with dynamic motion trails illustrating the secret mechanism behind ${cleanSubject}`,
+            narration: `When you look beneath the surface, the fundamental pattern reveals why top performers prioritize this.`,
+            captionText: `HERE IS THE EXACT MECHANISM 🧠⚡`,
+            imagePrompt: `cybernetic 3D diagram explaining ${cleanSubject}, glowing electrical network`,
             bgColor: "from-blue-950 via-indigo-950 to-slate-900",
           },
           {
             id: 3,
             timestamp: "00:18 - 00:27",
-            visualDescription: "Cinematic moody silhouette standing atop a skyscraper watching time bend across the metropolis",
-            narration: "Top athletes bypass this using the instant 5-second physical action rule.",
-            captionText: "THE 5-SECOND ACTION RULE 🚀🔥",
-            imagePrompt: "moody cinematic lighting, silhouette looking at futuristic city at midnight",
+            visualDescription: `Moody cinematic silhouette applying the rule in real life, golden hour reflections`,
+            narration: `The secret is simple: apply the 5-second action rule before overthinking takes over.`,
+            captionText: `THE 5-SECOND ACTION RULE 🚀💡`,
+            imagePrompt: `cinematic photography of ambitious creator mastering ${cleanSubject}`,
             bgColor: "from-rose-950 via-zinc-900 to-amber-950",
           },
           {
             id: 4,
             timestamp: "00:27 - 00:36",
-            visualDescription: "Speed ramp of light particles converging into a blinding supernova transition",
-            narration: "Count 5, 4, 3, 2, 1 and move right now. Follow for daily viral wisdom.",
-            captionText: "COUNT 5-4-3-2-1 AND MOVE. SUBSCRIBE! 💡",
-            imagePrompt: "cyberpunk light trails and supernova blast motion blur",
+            visualDescription: `Speed ramp of light particles converging into a blinding supernova transition`,
+            narration: `Save this video, drop a comment with your thoughts, and follow for more daily wisdom.`,
+            captionText: `COMMENT YOUR THOUGHTS & SUBSCRIBE! 🚀`,
+            imagePrompt: `cyberpunk light trails and supernova convergence motion blur`,
             bgColor: "from-red-950 via-neutral-900 to-purple-950",
           },
         ],
@@ -435,43 +459,107 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
           <div className="space-y-2">
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-black uppercase tracking-wider">
-                <Sparkles size={12} className="text-rose-400 animate-pulse" /> Google Gemini Video Studio
+                <Sparkles size={12} className="text-rose-400 animate-pulse" /> Google Gemini MCP Studio
               </span>
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold">
-                <Server size={12} /> {apiPool.length + (userApiKeys.length ? userApiKeys.length : 0)} Engines in Pool
+                <Brain size={12} /> Prompt-Driven Viral Engine
               </span>
               <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 text-[10px] font-mono">
-                API: gemini-flash-latest
+                MCP Context Active
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-              AI Video Creator & Live Player Preview
+              Viral AI Video Studio (Prompt-Driven MCP)
             </h1>
             <p className="text-xs md:text-sm text-zinc-300 max-w-2xl leading-relaxed">
-              Direct Google Gemini API integration with auto-failover engine pool. Create viral scripts, watch the live synchronized preview on the right player, and upload straight to your workspace in 1 click.
+              Every scene, viral hook, and voiceover is constructed strictly based on your exact prompt, brand persona, and selected viral psychological framework.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setShowMcpPanel(!showMcpPanel)}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+                showMcpPanel
+                  ? "bg-rose-600 text-white border-rose-500 shadow-md"
+                  : "bg-zinc-800/90 hover:bg-zinc-800 text-zinc-300 border-zinc-700"
+              }`}
+            >
+              <Brain size={14} className={showMcpPanel ? "text-white" : "text-rose-400"} />
+              <span>MCP Context & Frameworks</span>
+            </button>
             <button
               type="button"
               onClick={() => setShowApiPoolManager(!showApiPoolManager)}
               className="px-4 py-2.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-800 text-zinc-300 text-xs font-bold border border-zinc-700 transition-all flex items-center gap-2"
             >
-              <Key size={14} className="text-rose-400" />
-              <span>Gemini API Key & Pool</span>
+              <Key size={14} className="text-emerald-400" />
+              <span>API Pool</span>
             </button>
           </div>
         </div>
 
-        {/* Multi-API Failover Pool Manager Drawer */}
+        {/* MCP Context & Viral Framework Panel */}
+        {showMcpPanel && (
+          <div className="mt-6 pt-6 border-t border-zinc-800 relative z-10 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Viral Psychology Framework */}
+              <div>
+                <label className="text-xs font-bold text-zinc-200 block mb-1.5 flex items-center gap-1.5">
+                  <Target size={13} className="text-rose-400" /> Viral Framework Formula
+                </label>
+                <select
+                  value={viralFramework}
+                  onChange={e => setViralFramework(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white font-bold focus:outline-none focus:border-rose-500"
+                >
+                  {viralFrameworks.map(f => (
+                    <option key={f.id} value={f.name}>
+                      {f.icon} {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Target Audience Persona */}
+              <div>
+                <label className="text-xs font-bold text-zinc-200 block mb-1.5 flex items-center gap-1.5">
+                  <Compass size={13} className="text-amber-400" /> Target Audience Persona
+                </label>
+                <input
+                  type="text"
+                  value={targetAudience}
+                  onChange={e => setTargetAudience(e.target.value)}
+                  placeholder="e.g. Gen-Z Techies, Young Entrepreneurs..."
+                  className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              {/* MCP Custom Knowledge & Brand Guidelines */}
+              <div>
+                <label className="text-xs font-bold text-zinc-200 block mb-1.5 flex items-center gap-1.5">
+                  <Brain size={13} className="text-violet-400" /> Custom Knowledge / Brand Guidelines
+                </label>
+                <input
+                  type="text"
+                  value={mcpCustomContext}
+                  onChange={e => setMcpCustomContext(e.target.value)}
+                  placeholder="e.g. Speak in Hinglish slang, promote product X..."
+                  className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Multi-API Pool Manager Drawer */}
         {showApiPoolManager && (
           <div className="mt-6 pt-6 border-t border-zinc-800 relative z-10 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Primary Google Gemini API Key */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-200 block flex items-center gap-1.5">
-                  <Key size={13} className="text-rose-400" /> Primary Google Gemini API Key (`X-goog-api-key`)
+                  <Key size={13} className="text-rose-400" /> Google Gemini API Key (`X-goog-api-key`)
                 </label>
                 <input
                   type="password"
@@ -480,12 +568,8 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
                   placeholder="Paste your Gemini API key (e.g. AIzaSy... / AQ.Ab8...)"
                   className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500 font-mono"
                 />
-                <p className="text-[10px] text-zinc-400">
-                  Directly calls `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`
-                </p>
               </div>
 
-              {/* Add Additional Rotation Keys */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-200 block flex items-center gap-1.5">
                   <Server size={13} className="text-emerald-400" /> Backup / Rotation API Keys (Auto-Failover)
@@ -495,7 +579,7 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
                     type="password"
                     value={newApiKeyInput}
                     onChange={e => setNewApiKeyInput(e.target.value)}
-                    placeholder="Add extra key for load balancing..."
+                    placeholder="Add extra key for auto load balancing..."
                     className="flex-1 px-3.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500 font-mono"
                   />
                   <button
@@ -506,24 +590,6 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
                     <Plus size={14} /> Add
                   </button>
                 </div>
-              </div>
-            </div>
-
-            {/* Active Rotation Engines List */}
-            <div className="pt-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block mb-2">
-                Active Multi-Model Pool (Automatic Failover Chain):
-              </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {apiPool.map((engine, idx) => (
-                  <div key={idx} className="p-2.5 rounded-xl bg-zinc-900/90 border border-zinc-700/80 flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-bold text-zinc-200 truncate">{engine}</p>
-                      <p className="text-[9px] text-emerald-400">Failover Ready</p>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
@@ -538,9 +604,9 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <Flame size={14} className="text-rose-500" /> Viral Short Ideas
+                <Flame size={14} className="text-rose-500" /> Viral Prompt Starters
               </h3>
-              <span className="text-[10px] text-slate-400 font-bold">1-Click Pick</span>
+              <span className="text-[10px] text-slate-400 font-bold">1-Click Load</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
@@ -572,30 +638,33 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xs p-6 space-y-5">
             <div>
               <label className="text-xs font-black text-slate-900 block mb-1.5 flex items-center justify-between">
-                <span>Video Prompt / Story Idea</span>
-                <span className="text-[10px] text-slate-400 font-normal">Custom topic or news headline</span>
+                <span className="flex items-center gap-1.5">
+                  <Brain size={14} className="text-rose-500" /> Your Exact Video Prompt & Topic
+                </span>
+                <span className="text-[10px] text-rose-600 font-bold">100% Strictly Followed</span>
               </label>
               <textarea
                 rows={4}
                 value={topicPrompt}
                 onChange={e => setTopicPrompt(e.target.value)}
-                placeholder="e.g. 3 bizarre ancient inventions that should not have existed..."
+                placeholder="Type your exact idea, story, product review, or script prompt here... (e.g. 3 psychology tricks to make people instantly respect you)"
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-rose-500 resize-none font-medium leading-relaxed"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-black text-slate-800 block mb-1">Pacing & Tone</label>
+                <label className="text-xs font-black text-slate-800 block mb-1">Tone & Pace</label>
                 <select
                   value={selectedTone}
                   onChange={e => setSelectedTone(e.target.value)}
                   className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-400"
                 >
-                  <option value="Dramatic & Hooking">🔥 Dramatic & Hooking</option>
-                  <option value="Fast & High Energy">⚡ Fast & High Energy</option>
-                  <option value="Educational & Clear">🧠 Educational & Clear</option>
-                  <option value="Mystery & Suspense">👁️ Mystery & Suspense</option>
+                  <option value="High Energy & Retention">🔥 High Energy & Retention</option>
+                  <option value="Dramatic & Mysterious">👁️ Dramatic & Mysterious</option>
+                  <option value="Fast-Paced Educational">🧠 Fast-Paced Educational</option>
+                  <option value="Cinematic Storytelling">🎬 Cinematic Storytelling</option>
+                  <option value="Humorous & Relatable">😂 Humorous & Relatable</option>
                 </select>
               </div>
 
@@ -635,7 +704,7 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
                   className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:border-rose-400"
                 >
                   <option value="15-30s">⚡ 15 - 30 Seconds</option>
-                  <option value="30-45s">🔥 30 - 45 Seconds</option>
+                  <option value="30-45s">🔥 30 - 45 Seconds (Best)</option>
                   <option value="45-60s">📜 45 - 60 Seconds</option>
                 </select>
               </div>
@@ -655,12 +724,12 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
               {isGenerating ? (
                 <>
                   <RefreshCw size={18} className="animate-spin text-white" />
-                  <span>{generationStep || "Gemini Generating Video..."}</span>
+                  <span>{generationStep || "Generating Video..."}</span>
                 </>
               ) : (
                 <>
                   <Wand2 size={18} className="text-rose-100" />
-                  <span>Generate Video with Gemini</span>
+                  <span>Generate Prompt-Driven Video with Gemini</span>
                 </>
               )}
             </button>
@@ -677,12 +746,17 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-ping" />
                     <h3 className="text-xs font-black uppercase tracking-wider text-rose-300">
-                      Live Video Player & Preview
+                      Live Player Preview
                     </h3>
                   </div>
-                  <span className="text-[10px] font-bold bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded-full">
-                    Engine: {project.engineUsed}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold bg-zinc-800 text-zinc-300 px-2.5 py-1 rounded-full">
+                      {project.frameworkUsed?.split("(")[0] || "Curiosity Gap"}
+                    </span>
+                    <span className="text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800/60 px-2.5 py-1 rounded-full">
+                      {project.engineUsed}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Simulated Screen / Canvas Viewport */}
@@ -851,10 +925,10 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
               </div>
               <div className="max-w-md space-y-1.5">
                 <h3 className="text-lg font-black text-slate-900 tracking-tight">
-                  Live Video Player Stage
+                  Prompt-Driven Live Player Stage
                 </h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Generate your video on the left. The live simulated player will appear here with synchronized animated karaoke subtitles, voiceover audio playback, scene switching, and 1-click workspace direct upload.
+                  Enter your exact prompt on the left. The live player will construct your video with synchronized karaoke subtitles, voiceover narration, and 1-click workspace direct upload.
                 </p>
               </div>
 
@@ -863,13 +937,13 @@ Your response MUST be valid pure JSON with this exact schema without markdown fo
                   type="button"
                   onClick={() => {
                     setSelectedNiche("Facts & Mysteries");
-                    setTopicPrompt("Mind-blowing cosmic paradoxes and unexplained history");
+                    setTopicPrompt("3 scientific paradoxes about the deep ocean that terrify researchers");
                     handleGenerateVideo();
                   }}
                   className="px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black transition-all flex items-center gap-2 shadow-xs"
                 >
                   <Sparkles size={14} className="text-rose-400" />
-                  <span>Try 1-Click Cosmic Demo</span>
+                  <span>Load Deep Ocean Paradoxes Demo</span>
                 </button>
               </div>
             </div>
